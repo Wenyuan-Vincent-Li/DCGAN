@@ -58,17 +58,19 @@ class Config(object):
     # Number of classification classes (including background)
     NUM_CLASSES = 10  # Override in sub-classes
 
+    # Latent variable z dimension
+    Z_DIM = 100
+
     # Weight decay regularization
     WEIGHT_DECAY = 0.0001
 
     # Network Property
-    BATCH_NORM_DECAY = 0.999
-    BATCH_NORM_EPSILON = 0.001
+    BATCH_NORM_DECAY = 0.9
+    BATCH_NORM_EPSILON = 1e-5
 
     # Training Property
-    IS_TRAINING = None
     EPOCHS = 25
-    LEARNING_RATE = 0.001
+    LEARNING_RATE = 0.0002
     BETA1 = 0.5
     SAVE_PER_EPOCH = 5
     RESTORE = True
@@ -79,19 +81,21 @@ class Config(object):
     # Input image reszing
     IMAGE_HEIGHT = 28
     IMAGE_WIDTH = 28
+    CHANNEL = 1
+    REPEAT = -1
     MIN_QUEUE_EXAMPLES = 15
 
     # Summary
     SUMMARY = True
     SUMMARY_GRAPH = False
-    SUMMARY_SCALAR = True
+    SUMMARY_SCALAR = False
     SUMMARY_IMAGE = False
-    SUMMARY_TRAIN_VAL = False
     SUMMARY_HISTOGRAM = False
 
     def __init__(self):
         """Set values of computed attributes."""
         self.MIN_QUEUE_EXAMPLES = int(15 * 0.4)
+        self.IMAGE_DIM = [self.IMAGE_HEIGHT, self.IMAGE_WIDTH, self.CHANNEL]
 
     def display(self):
         """Display Configuration values."""
@@ -100,3 +104,12 @@ class Config(object):
             if not a.startswith("__") and not callable(getattr(self, a)):
                 print("{:30} {}".format(a, getattr(self, a)))
         print("\n")
+
+    def config_str(self):
+        """Return a configurations string"""
+        s = "\nConfigurations:\n"
+        for a in dir(self):
+            if not a.startswith("__") and not callable(getattr(self, a)):
+                s += "{:30} {}".format(a, getattr(self, a))
+                s += "\n"
+        return s

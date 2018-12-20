@@ -27,17 +27,18 @@ class Train_base(object):
         raise NotImplementedError(
             'metirc() is implemented in Model sub classes')
 
-    def _train_op(self, optimizer, loss):
+    def _train_op(self, optimizer, loss, var_list = None):
         train_op = optimizer.minimize(loss,
-                                      global_step=tf.train.get_global_step())
+                                      global_step=tf.train.get_global_step(),
+                                      var_list = var_list)
         return train_op
 
-    def _train_op_w_grads(self, optimizer, loss):
-        grads = optimizer.compute_gradients(loss)
+    def _train_op_w_grads(self, optimizer, loss, var_list = None):
+        grads = optimizer.compute_gradients(loss, var_list = var_list)
         train_op = optimizer.apply_gradients(grads)
         return train_op, grads
 
-    def _Adam_optimizer(self, name):
+    def _Adam_optimizer(self, name = 'Adam_optimizer'):
         optimizer = tf.train.AdamOptimizer(
             learning_rate = self.learning_rate,
             beta1 = self.beta1,
@@ -48,6 +49,11 @@ class Train_base(object):
     def _cross_entropy_loss_w_logits(self, labels, logits):
         loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, \
                                                           logits=logits)
+        loss = tf.reduce_mean(loss)
+        return loss
+
+    def _sigmoid_cross_entopy_w_logits(self, labels, logits):
+        loss = tf.nn.sigmoid_cross_entropy_with_logits(labels = labels, logits = logits)
         loss = tf.reduce_mean(loss)
         return loss
 

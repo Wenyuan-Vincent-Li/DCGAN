@@ -10,10 +10,6 @@ root_dir = os.path.dirname(os.getcwd())
 sys.path.append(root_dir)
 import tensorflow as tf
 
-HEIGHT = 28
-WIDTH = 28
-DEPTH = 1
-
 
 class mnistDataSet(object):
     """
@@ -27,11 +23,10 @@ class mnistDataSet(object):
         self.config = config
 
     def get_filenames(self):
-        if self.subset in ['train', 'val']:
-            return os.path.join(self.data_dir, 'Tfrecord/' \
-                                + 'mnist_' + self.subset + '.tfrecords')
-        else:
-            raise ValueError('Invalid data subset "%s"' % self.subset)
+        return [os.path.join(self.data_dir, 'Tfrecord/' \
+                                + 'mnist_' + 'train' + '.tfrecords'),
+                os.path.join(self.data_dir, 'Tfrecord/' \
+                                        + 'mnist_' + 'val' + '.tfrecords')]
 
     def input_from_tfrecord_placeholder(self):
         filename = tf.placeholder(tf.string, shape=[None], \
@@ -55,10 +50,10 @@ class mnistDataSet(object):
             })
 
         image = tf.decode_raw(features['image'], tf.uint8)
-        image.set_shape([HEIGHT * WIDTH * DEPTH])
+        image.set_shape([self.config.IMAGE_HEIGHT * self.config.IMAGE_WIDTH * self.config.CHANNEL])
 
         label = tf.cast(features['label'], tf.int32)
-        image = tf.cast(tf.reshape(image, [HEIGHT, WIDTH, DEPTH]), tf.float32)
+        image = tf.cast(tf.reshape(image, self.config.IMAGE_DIM), tf.float32)
         if self.use_augmentation:
             image, label = self.preprocessing(image, label)
 
@@ -69,12 +64,12 @@ class mnistDataSet(object):
         label = tf.one_hot(label, depth=self.config.NUM_CLASSES)
         return image, label
 
-    def shuffle_and_repeat(self, dataset):
+    def shuffle_and_repeat(self, dataset, repeat = -1):
         dataset = dataset.shuffle(buffer_size= \
                                       self.config.MIN_QUEUE_EXAMPLES + \
                                       3 * self.config.BATCH_SIZE, \
                                   )
-        dataset = dataset.repeat(1)
+        dataset = dataset.repeat(repeat)
         return dataset
 
     def batch(self, dataset):
@@ -84,21 +79,22 @@ class mnistDataSet(object):
 
     def inputpipline_singleset(self):
         # 1 Read in tfrecords
-        dataset, filename = self.input_from_tfrecord_placeholder()
+        dataset = self.input_from_tfrecord_filename()
         # 2 Parser tfrecords and preprocessing the data
         dataset = dataset.map(self.parser, \
                               num_parallel_calls=self.config.BATCH_SIZE)
 
         # 3 Shuffle and repeat
-        dataset = self.shuffle_and_repeat(dataset)
+        dataset = self.shuffle_and_repeat(dataset, repeat = self.config.REPEAT)
         # 4 Batch it up
         dataset = self.batch(dataset)
         # 5 Make iterator
         iterator = dataset.make_initializable_iterator()
+        init_op = iterator.initializer
         image_batch, label_batch = iterator.get_next()
-
-        return image_batch, label_batch, filename, iterator
-        ## return the input tensor, iterator, placeholder
+        image_batch.set_shape([self.config.BATCH_SIZE] + self.config.IMAGE_DIM)
+        label_batch.set_shape([self.config.BATCH_SIZE, self.config.NUM_CLASSES])
+        return image_batch, label_batch, init_op
 
     def inputpipline_train_val(self, other):
         # 1 Read in tfrecords
@@ -128,6 +124,7 @@ def _main_inputpipline_singleset():
     from config import Config
     class tempConfig(Config):
         BATCH_SIZE = 64
+        REPEAT = 1
 
     tmp_config = tempConfig()
     data_dir = os.path.join(root_dir, "Dataset/mnist")
@@ -136,11 +133,10 @@ def _main_inputpipline_singleset():
     tf.reset_default_graph()
     with tf.device('/cpu:0'):
         dataset = mnistDataSet(data_dir, tmp_config, \
-                               'train', use_augmentation=False)
-        image_batch, label_batch, filename, iterator = dataset.inputpipline_singleset()
+                               'train', use_augmentation = True)
+        image_batch, label_batch, init_op = dataset.inputpipline_singleset()
         with tf.Session() as sess:
-            sess.run(iterator.initializer, \
-                     feed_dict={filename: [dataset.get_filenames()]})
+            sess.run(init_op)
             while True:
                 try:
                     image_batch_output, label_batch_output = \
@@ -150,10 +146,11 @@ def _main_inputpipline_singleset():
                     break
     print(image_batch_output.shape, label_batch_output.shape, num_dataset)
 
-if __name__ == "__main__":
+def _main_inputpipeline_train_val():
     from config import Config
     class tempConfig(Config):
         BATCH_SIZE = 64
+
     tmp_config = tempConfig()
 
     data_dir = os.path.join(root_dir, "Dataset/mnist")
@@ -161,9 +158,9 @@ if __name__ == "__main__":
     tf.reset_default_graph()
     with tf.device('/cpu:0'):
         dataset_train = mnistDataSet(data_dir, tmp_config, \
-                                        'train', use_augmentation=True)
+                                     'train', use_augmentation=True)
         dataset_val = mnistDataSet(data_dir, tmp_config, \
-                                      'val', use_augmentation=True)
+                                   'val', use_augmentation=True)
 
         image_batch, label_batch, init_op_train, init_op_val \
             = dataset_train.inputpipline_train_val(dataset_val)
@@ -184,3 +181,6 @@ if __name__ == "__main__":
                 except tf.errors.OutOfRangeError:
                     break
     print(image_batch_output.shape, label_batch_output.shape, num_dataset)
+
+if __name__ == "__main__":
+    _main_inputpipline_singleset()

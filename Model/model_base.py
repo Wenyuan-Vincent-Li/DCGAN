@@ -11,11 +11,10 @@ from __future__ import print_function
 import tensorflow as tf
 
 class GAN_Base(object):
-    def __init__(self, is_training, data_format, batch_norm_decay=0.999,
-                 batch_norm_epsilon=0.001):
+    def __init__(self, data_format, batch_norm_decay=0.9,
+                 batch_norm_epsilon=1e-5):
         self._batch_norm_decay = batch_norm_decay
         self._batch_norm_epsilon = batch_norm_epsilon
-        self._is_training = is_training
         assert data_format in ('channels_first', 'channels_last'), \
             "Not valide image data format!"
         self._data_format = data_format
@@ -55,7 +54,7 @@ class GAN_Base(object):
             else:
                 return tf.matmul(input_, matrix) + bias
 
-    def _batch_norm(self, x, name):
+    def _batch_norm(self, x, name, train = False):
         if self._data_format == 'channels_first':
             axis = 1
         else:
@@ -67,7 +66,7 @@ class GAN_Base(object):
             center = True,
             scale = True,
             epsilon = self._batch_norm_epsilon,
-            training = self._is_training,
+            training = train,
             name = name)
         return x
 

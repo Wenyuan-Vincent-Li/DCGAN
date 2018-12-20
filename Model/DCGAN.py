@@ -6,7 +6,7 @@ from Model import model_base
 
 class DCGAN(model_base.GAN_Base):
     def __init__(self, config):
-        super(DCGAN, self).__init__(config.IS_TRAINING, config.DATA_FORMAT, \
+        super(DCGAN, self).__init__(config.DATA_FORMAT, \
                                     config.BATCH_NORM_DECAY, config.BATCH_NORM_EPSILON)
         self.config = config
 
@@ -26,13 +26,13 @@ class DCGAN(model_base.GAN_Base):
 
                 ## first linear layer
                 h0 = self._linear(z, 1024, 'g_h0_lin')
-                h0 = self._batch_norm(h0, 'g_bn0')
+                h0 = self._batch_norm(h0, 'g_bn0', train = True)
                 h0 = tf.nn.relu(h0, 'g_rl0')
                 h0 = tf.concat([h0, y], 1)
 
                 ## second linear layer
                 h1 = self._linear(h0, self.config.BATCH_SIZE * 2 * 7 * 7, 'g_h1_lin')
-                h1 = self._batch_norm(h1, 'g_bn1')
+                h1 = self._batch_norm(h1, 'g_bn1', train = True)
                 h1 = tf.nn.relu(h1, 'g_rl1')
 
                 ## reshape to conv feature pack and concat with label condition
@@ -41,7 +41,7 @@ class DCGAN(model_base.GAN_Base):
 
                 ## first layer deconv
                 h2 = self._deconv2d(h1, [self.config.BATCH_SIZE, 14, 14, 128], name = 'g_dconv0')
-                h2 = self._batch_norm(h2, 'g_bn2')
+                h2 = self._batch_norm(h2, 'g_bn2', train = True)
                 h2 = tf.nn.relu(h2, 'g_rl2')
                 h2 = self._conv_cond_concat(h2, yb)
 
@@ -69,7 +69,7 @@ class DCGAN(model_base.GAN_Base):
 
                 # second conv
                 h1 = self._conv2d(h0, 64 + self.config.NUM_CLASSES, name = 'd_h1_conv')
-                h1 = self._batch_norm(h1, name = 'd_h1_bn')
+                h1 = self._batch_norm(h1, name = 'd_h1_bn', train = True)
                 h1 = tf.nn.leaky_relu(h1, alpha = 0.2, name = 'd_leaky1')
 
                 # reshape and concat the label
@@ -78,7 +78,7 @@ class DCGAN(model_base.GAN_Base):
 
                 ## fc layer
                 h2 = self._linear(h1, 1024, 'd_h2_lin')
-                h2 = self._batch_norm(h2, name = 'd_h2_bn')
+                h2 = self._batch_norm(h2, name = 'd_h2_bn', train = True)
                 h2= tf.nn.leaky_relu(h2, alpha = 0.2, name = 'd_leaky2')
                 h2 = tf.concat([h2, y], 1)
 
@@ -94,22 +94,53 @@ class DCGAN(model_base.GAN_Base):
         :param label: input label (e.g. mnist)
         :return:
         """
-        self.z = z
-        self.y = label
-
-        self.G = self.generator(self.z, self.y)
-        self.D, self.D_logits = self.discriminator(image, self.y, reuse = False)
+        G = self.generator(z, label)
+        D, D_logits = self.discriminator(image, label, reuse = False)
         ## TODO: self.sampler to visualize the generated data through training
-        self.D_, self.D_logits_ = self.discriminator(self.G, self.y, reuse = True)
+        D_, D_logits_ = self.discriminator(G, label, reuse = True)
 
-        return self.G, self.D, self.D_logits, self.D_, self.D_logits_
+        return G, D, D_logits, D_, D_logits_
+
+    def sampler(self, z, y = None):
+        with tf.variable_scope("generator") as scope:
+            scope.reuse_variables()
+
+            yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])  ## [None, 1, 1, 10]
+            z = tf.concat([z, y], 1)  # concat the z and y in the latent space
+
+            ## first linear layer
+            h0 = self._linear(z, 1024, 'g_h0_lin')
+            h0 = self._batch_norm(h0, 'g_bn0', train = False)
+            h0 = tf.nn.relu(h0, 'g_rl0')
+            h0 = tf.concat([h0, y], 1)
+
+            ## second linear layer
+            h1 = self._linear(h0, self.config.BATCH_SIZE * 2 * 7 * 7, 'g_h1_lin')
+            h1 = self._batch_norm(h1, 'g_bn1', train = False)
+            h1 = tf.nn.relu(h1, 'g_rl1')
+
+            ## reshape to conv feature pack and concat with label condition
+            h1 = tf.reshape(h1, [self.config.BATCH_SIZE, 7, 7, 64 * 2])
+            h1 = self._conv_cond_concat(h1, yb)
+
+            ## first layer deconv
+            h2 = self._deconv2d(h1, [self.config.BATCH_SIZE, 14, 14, 128], name='g_dconv0')
+            h2 = self._batch_norm(h2, 'g_bn2', train = False)
+            h2 = tf.nn.relu(h2, 'g_rl2')
+            h2 = self._conv_cond_concat(h2, yb)
+
+            ## output layer: sigmoid to map the data range to [0, 1]
+            h3 = self._deconv2d(h2, [self.config.BATCH_SIZE, 28, 28, 1], name='g_dconv1')
+            h3 = tf.nn.sigmoid(h3, name='sigmoid')
+
+        return h3
+
 
 if __name__ == "__main__":
     from config import Config
     class tempConfig(Config):
         BATCH_SIZE = 64
         NUM_CLASSES = 10
-        IS_TRAINING = True
 
     tmp_config = tempConfig()
     model = DCGAN(tmp_config)
