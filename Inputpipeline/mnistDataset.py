@@ -9,6 +9,7 @@ import os, sys
 root_dir = os.path.dirname(os.getcwd())
 sys.path.append(root_dir)
 import tensorflow as tf
+import numpy as np
 
 
 class mnistDataSet(object):
@@ -21,6 +22,43 @@ class mnistDataSet(object):
         self.subset = subset
         self.use_augmentation = use_augmentation
         self.config = config
+        self.y_dim = 10
+
+    def load_mnist(self):
+
+        fd = open(os.path.join(self.data_dir, 'train-images-idx3-ubyte'))
+        loaded = np.fromfile(file=fd, dtype=np.uint8)
+        trX = loaded[16:].reshape((60000, 28, 28, 1)).astype(np.float)
+
+        fd = open(os.path.join(self.data_dir, 'train-labels-idx1-ubyte'))
+        loaded = np.fromfile(file=fd, dtype=np.uint8)
+        trY = loaded[8:].reshape((60000)).astype(np.float)
+
+        fd = open(os.path.join(self.data_dir, 't10k-images-idx3-ubyte'))
+        loaded = np.fromfile(file=fd, dtype=np.uint8)
+        teX = loaded[16:].reshape((10000, 28, 28, 1)).astype(np.float)
+
+        fd = open(os.path.join(self.data_dir, 't10k-labels-idx1-ubyte'))
+        loaded = np.fromfile(file=fd, dtype=np.uint8)
+        teY = loaded[8:].reshape((10000)).astype(np.float)
+
+        trY = np.asarray(trY)
+        teY = np.asarray(teY)
+
+        X = np.concatenate((trX, teX), axis=0)
+        y = np.concatenate((trY, teY), axis=0).astype(np.int)
+
+        seed = 547
+        np.random.seed(seed)
+        np.random.shuffle(X)
+        np.random.seed(seed)
+        np.random.shuffle(y)
+
+        y_vec = np.zeros((len(y), self.y_dim), dtype=np.float)
+        for i, label in enumerate(y):
+            y_vec[i, y[i]] = 1.0
+
+        return X / 255., y_vec
 
     def get_filenames(self):
         return [os.path.join(self.data_dir, 'Tfrecord/' \
@@ -182,5 +220,17 @@ def _main_inputpipeline_train_val():
                     break
     print(image_batch_output.shape, label_batch_output.shape, num_dataset)
 
+def _main_numpy_mnistset():
+    from config import Config
+    class tempConfig(Config):
+        BATCH_SIZE = 64
+    tmp_config = tempConfig()
+    data_dir = os.path.join(root_dir, "Dataset/mnist")
+
+    dataset = mnistDataSet(data_dir, tmp_config)
+
+    X, y = dataset.load_mnist()
+    print(X[0: 64, ...].shape)
+
 if __name__ == "__main__":
-    _main_inputpipline_singleset()
+    _main_numpy_mnistset()

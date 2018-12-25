@@ -6,9 +6,7 @@ TODO: provide a parser access from terminal.
 import sys, os
 root_dir = os.path.dirname(os.getcwd())
 sys.path.append(root_dir)
-import numpy as np
 import tensorflow as tf
-from time import strftime
 from datetime import datetime
 from pytz import timezone
 
@@ -17,8 +15,6 @@ from Training.train_base import Train_base
 from Training.Saver import Saver
 from Training.Summary import Summary
 from utils import *
-# import Training.utils as utils
-# from Training.utils import initialize_uninitialized_vars
 
 class Train(Train_base):
     def __init__(self, config, log_dir, save_dir, **kwargs):
@@ -36,6 +32,7 @@ class Train(Train_base):
 
         # Create input node
         image_batch, label_batch, init_op, dataset = self._input_fn()
+        # image, label = self._input_fn_NP()  # using numpy array as feed dict
 
         # Build up the graph and loss
         with tf.device('/gpu:0'):
@@ -54,7 +51,7 @@ class Train(Train_base):
             d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_)
 
             # Sample the generated image every epoch
-            samples = model.sampler(z, label_batch)
+            samples = model.sampler(z, y)
 
         # Create optimizer
         with tf.name_scope('Train'):
@@ -69,19 +66,30 @@ class Train(Train_base):
 
 
 
-        ## TODO: add summary
+        # Add summary
+        if self.config.SUMMARY:
+            summary_dict = {}
+            if self.config.SUMMARY_SCALAR:
+                scaler = {'generator loss': g_loss,
+                          'discriminator loss': d_loss}
+                summary_dict['scalar'] = scaler
 
-        ## TODO: add saver
+            merged_summary = self.summary.add_summary(summary_dict)
 
+        # Add saver
+        saver = Saver(self.save_dir)
 
         # Create Session
         sess_config = tf.ConfigProto(allow_soft_placement = True)
         # Use soft_placement to place those variables, which can be placed, on GPU
         with tf.Session(config = sess_config) as sess:
+            if self.config.SUMMARY and self.config.SUMMARY_GRAPH:
+                self.summary._graph_summary(sess.graph)
+
             if self.config.RESTORE:
-                ## TODO
-                pass
+                start_epoch = saver.restore(sess)
             else:
+                saver.set_save_path(comments = self.comments)
                 start_epoch = 0
                 # initialize the variables
                 init_var = tf.group(tf.global_variables_initializer(), \
@@ -90,11 +98,11 @@ class Train(Train_base):
             sess.run(init_op)
             sample_z = np.random.uniform(-1, 1, size=(64, 100))
             sample_x, sample_y = sess.run([image_batch, label_batch])
-
+            # sample_x, sample_y = image[:64, ...], label[:64, ...] # for numpy input
 
             # Start Training
             tf.logging.info("Start traininig!")
-            for epoch in range(start_epoch + 1, self.config.EPOCHS + 1):
+            for epoch in range(start_epoch + 1, self.config.EPOCHS + start_epoch + 1):
                 tf.logging.info("Training for epoch {}.".format(epoch))
                 train_pr_bar = tf.contrib.keras.utils.Progbar(target= \
                                                                   int(self.config.TRAIN_SIZE / self.config.BATCH_SIZE))
@@ -104,11 +112,16 @@ class Train(Train_base):
                     # Fetch a data batch
                     image_batch_o, label_batch_o = sess.run([image_batch, label_batch])
 
+                    ## for numpy input
+                    # image_batch_o, label_batch_o = image[i * self.config.BATCH_SIZE : (i + 1) * self.config.BATCH_SIZE], \
+                    #                                label[i * self.config.BATCH_SIZE : (i + 1) * self.config.BATCH_SIZE]
+
                     # Update discriminator
                     _, d_loss_o = sess.run([d_optim, d_loss],
                                 feed_dict = {x: image_batch_o,
                                              y: label_batch_o,
                                              z: batch_z})
+
                     # Update generator
                     _ = sess.run([g_optim],
                                  feed_dict = {y: label_batch_o,
@@ -117,18 +130,37 @@ class Train(Train_base):
                                  feed_dict = {y: label_batch_o,
                                               z: batch_z})
 
+
                     # Update progress bar
                     train_pr_bar.update(i)
                 print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f" \
                       % (epoch, self.config.EPOCHS, d_loss_o, g_loss_o))
 
+                # Save the model per SAVE_PER_EPOCH
+                if epoch % self.config.SAVE_PER_EPOCH == 0:
+                    save_name = str(epoch)
+                    saver.save(sess, 'model_' + save_name.zfill(4) + '.ckpt')
+
                 ## Sample image after every epoch
-                samples_o, d_loss_o, g_loss_o = sess.run([samples, d_loss, g_loss],
+                samples_o, d_loss_o, g_loss_o, summary_o = sess.run([samples, d_loss, g_loss, merged_summary],
                                                    feed_dict = {x: sample_x,
                                                                 y: sample_y,
                                                                 z: sample_z})
+
+                if self.config.SUMMARY:
+                    self.summary.summary_writer.add_summary(summary_o, epoch)
+
                 print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss_o, g_loss_o))
                 save_images(samples_o, image_manifold_size(samples_o.shape[0]), './samples/train_{:02d}.png'.format(epoch))
+
+            if self.config.SUMMARY:
+                self.summary.summary_writer.flush()
+                self.summary.summary_writer.close()
+
+            # Save the model after all epochs
+            save_name = str(epoch)
+            saver.save(sess, 'model_' + save_name.zfill(4) + '.ckpt')
+            return
 
 
     def _loss(self, D, D_logits, D_, D_logits_):
@@ -170,27 +202,37 @@ class Train(Train_base):
                 image_batch, label_batch, init_op = dataset.inputpipline_singleset()
         return image_batch, label_batch, init_op, dataset
 
+    def _input_fn_NP(self):
+        """
+        Create the input node using numpy function
+        :return:
+        """
+        dataset = DataSet(self.config.DATA_DIR, self.config)
+        X, y = dataset.load_mnist()
+        return X, y
 
 if __name__ == "__main__":
     from config import Config
     from Model.DCGAN import DCGAN as Model
+    from time import strftime
 
     tf.logging.set_verbosity(tf.logging.INFO)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Disable all debugging logs
 
     class tempConfig(Config):
+        NAME = "MNIST_DCGAN"
         BATCH_SIZE = 64
         RESTORE = False
         TRAIN_SIZE = 70000
         DATA_DIR = os.path.join(root_dir, "Dataset/mnist")
-        EPOCHS = 25
+        EPOCHS = 5
 
     tmp_config = tempConfig()
 
     # Folder to save the trained weights
-    save_dir = "Training/Weights"
+    save_dir = os.path.join(root_dir, "Training/Weights")
     # Folder to save the tensorboard info
-    log_dir = "Training/Log"
+    log_dir = os.path.join(root_dir, "Training/Log")
     # Comments log on the current run
     comments = "This training is for creating a developed API."
     comments += tmp_config.config_str() + datetime.now(timezone('US/Eastern')).strftime("%Y-%m-%d_%H_%M_%S")

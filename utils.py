@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
 import scipy.misc
+import os
 
 
 def plot(samples,Nh,Nc,channel,IMG_HEIGHT, IMG_WIDTH):
@@ -31,17 +32,22 @@ def plot(samples,Nh,Nc,channel,IMG_HEIGHT, IMG_WIDTH):
             plt.imshow(image)
     return fig
 
+
 def image_manifold_size(num_images):
     manifold_h = int(np.floor(np.sqrt(num_images)))
     manifold_w = int(np.ceil(np.sqrt(num_images)))
     assert manifold_h * manifold_w == num_images
     return manifold_h, manifold_w
 
+
 def save_images(images, size, image_path):
+    check_folder_exists(os.path.dirname(image_path))
     return imsave(inverse_transform(images), size, image_path)
+
 
 def inverse_transform(images):
     return (images + 1.)/2.
+
 
 def imsave(images, size, path):
     image = np.squeeze(merge(images, size))
@@ -68,3 +74,11 @@ def merge(images, size):
     else:
         raise ValueError('in merge(images,size) images parameter '
                          'must have dimensions: HxW or HxWx3 or HxWx4')
+
+
+def check_folder_exists(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
+        return False
+    else:
+        return True

@@ -69,10 +69,10 @@ class Config(object):
     BATCH_NORM_EPSILON = 1e-5
 
     # Training Property
-    EPOCHS = 25
+    EPOCHS = 10
     LEARNING_RATE = 0.0002
     BETA1 = 0.5
-    SAVE_PER_EPOCH = 5
+    SAVE_PER_EPOCH = 2
     RESTORE = True
 
 
@@ -87,8 +87,8 @@ class Config(object):
 
     # Summary
     SUMMARY = True
-    SUMMARY_GRAPH = False
-    SUMMARY_SCALAR = False
+    SUMMARY_GRAPH = True
+    SUMMARY_SCALAR = True
     SUMMARY_IMAGE = False
     SUMMARY_HISTOGRAM = False
 
