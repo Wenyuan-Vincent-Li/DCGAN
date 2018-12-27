@@ -78,12 +78,16 @@ class Config(object):
 
     # Input Pipeline
     DATA_DIR = ""  # rewrite this as dataset directory.
-    # Input image reszing
+    # Input image
     IMAGE_HEIGHT = 28
     IMAGE_WIDTH = 28
     CHANNEL = 1
     REPEAT = -1
     MIN_QUEUE_EXAMPLES = 15
+    # Crop and resize
+    CROP = False
+    IMAGE_HEIGHT_O = None
+    IMAGE_WIDTH_O = None
 
     # Summary
     SUMMARY = True
