@@ -99,7 +99,7 @@ class mnistDataSet(object):
 
     def preprocessing(self, image, label):
         image = tf.div(image, 255)
-        label = tf.one_hot(label, depth=self.config.NUM_CLASSES)
+        label = tf.one_hot(label, depth=self.y_dim)
         return image, label
 
     def shuffle_and_repeat(self, dataset, repeat = -1):
@@ -131,7 +131,7 @@ class mnistDataSet(object):
         init_op = iterator.initializer
         image_batch, label_batch = iterator.get_next()
         image_batch.set_shape([self.config.BATCH_SIZE] + self.config.IMAGE_DIM)
-        label_batch.set_shape([self.config.BATCH_SIZE, self.config.NUM_CLASSES])
+        label_batch.set_shape([self.config.BATCH_SIZE, self.y_dim])
         return image_batch, label_batch, init_op
 
     def inputpipline_train_val(self, other):
@@ -233,4 +233,4 @@ def _main_numpy_mnistset():
     print(X[0: 64, ...].shape)
 
 if __name__ == "__main__":
-    _main_numpy_mnistset()
+    _main_inputpipline_singleset()

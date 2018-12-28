@@ -56,7 +56,10 @@ class Config(object):
     BACKBONE_STRIDES = [4, 8, 16, 32, 64]
 
     # Number of classification classes (including background)
-    NUM_CLASSES = 10  # Override in sub-classes
+    NUM_CLASSES = None # Override in sub-classes
+
+    # Whether to use the Y_LABEL as conditional GAN
+    Y_LABLE = None
 
     # Latent variable z dimension
     Z_DIM = 100

@@ -55,7 +55,7 @@ class celebADataSet(object):
                                                            target_height = 108,
                                                            target_width = 108)
             image = tf.image.resize_images(image, size = [self.config.IMAGE_HEIGHT_O, self.config.IMAGE_WIDTH_O])
-        image = tf.div(image - 127.5, 255) - 1
+        image = tf.div(image, 127.5) - 1
         return image
 
     def shuffle_and_repeat(self, dataset, repeat = -1):
