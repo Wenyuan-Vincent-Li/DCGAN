@@ -78,7 +78,7 @@ class CedarsDataset(object):
         dataset = dataset.prefetch(buffer_size=self.config.BATCH_SIZE)
         return dataset
 
-    def inputpipline_singelset(self):
+    def inputpipline_singleset(self):
         ## Inputpipline that used for training
         ## Return: init_op_train (list); init_op_val (list); lab_input (tensor);
         ## lab_output (tensor); train_unl_input (tensor).
@@ -109,9 +109,8 @@ if __name__ == "__main__":
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # disable all debugging logs
 
     class Temp_Config(Config):
-        BATCH_SIZE = 1
+        BATCH_SIZE = 64
         REPEAT = 1
-        NUM_CLASSES = None
         IMAGE_HEIGHT = 64
         IMAGE_WIDTH = 64
         CHANNEL = 3
