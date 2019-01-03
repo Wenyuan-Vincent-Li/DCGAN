@@ -46,6 +46,14 @@ class Train_base(object):
         )
         return optimizer
 
+    def _RMSProp_optimizer(self, name = 'RMSProp_optimizer'):
+        optimizer = tf.train.RMSPropOptimizer(
+            learning_rate = self.learning_rate,
+            decay = 0.9,
+            name = name
+        )
+        return optimizer
+
     def _cross_entropy_loss_w_logits(self, labels, logits):
         loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, \
                                                           logits=logits)
@@ -57,3 +65,66 @@ class Train_base(object):
         loss = tf.reduce_mean(loss)
         return loss
 
+
+    def _loss_GAN(self, D, D_logits, D_, D_logits_):
+        """
+        :param D: (0, 1) after sigmoid function for real data
+        :param D_logits: logits for real data
+        :param D_: (0, 1) after sigmoid function for fake data
+        :param D_logits_: logits for fake data
+        :return:
+        """
+        with tf.name_scope('Loss'):
+            # Discriminator loss
+            d_loss_real = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
+            d_loss_fake = self._sigmoid_cross_entopy_w_logits(tf.zeros_like(D_), D_logits_)
+            d_loss = d_loss_fake + d_loss_real
+            # Generator loss
+            g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
+        return d_loss, g_loss
+
+    def _loss_WGAN(self, D, D_logits, D_, D_logits_):
+        with tf.name_scope('Loss'):
+            # Discriminator loss
+            wd = tf.reduce_mean(D_logits) - tf.reduce_mean(D_logits_)
+            d_loss = -wd
+            # Generator loss
+            g_loss = -tf.reduce_mean(D_logits_)
+        return d_loss, g_loss
+
+    def _loss_WGAN_GP(self, D, D_logits, D_, D_logits_, real, fake, discriminator):
+        ## TODO: input function
+        with tf.name_scope('Loss'):
+            # Discriminator loss
+            wd = tf.reduce_mean(D_logits) - tf.reduce_mean(D_logits_)
+            gp = self._gradient_penalty(real, fake, discriminator)
+            d_loss = -wd + gp * 10.0
+            # Generator loss
+            g_loss = -tf.reduce_mean(D_logits_)
+        return d_loss, g_loss
+
+    def _loss_LSGAN(self, D, D_logits, D_, D_logits_):
+        with tf.name_scope('Loss'):
+            # Discriminator loss
+            d_r_loss = tf.losses.mean_squared_error(tf.ones_like(D_logits), D_logits)
+            d_f_loss = tf.losses.mean_squared_error(tf.zeros_like(D_logits_), D_logits_)
+            d_loss = (d_r_loss + d_f_loss) / 2.0
+            # Generator loss
+            g_loss = tf.losses.mean_squared_error(tf.ones_like(D_logits), D_logits_)
+        return d_loss, g_loss
+
+
+    def _gradient_penalty(self, real, fake, f):
+        def interpolate(a, b):
+            shape = tf.concat((tf.shape(a)[0:1], tf.tile([1], [a.shape.ndims - 1])), axis=0)
+            alpha = tf.random_uniform(shape=shape, minval=0., maxval=1.)
+            inter = a + alpha * (b - a)
+            inter.set_shape(a.get_shape().as_list())
+            return inter
+
+        x = interpolate(real, fake)
+        pred = f(x, reuse = True)
+        gradients = tf.gradients(pred, x)[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=range(1, x.shape.ndims)))
+        gp = tf.reduce_mean((slopes - 1.) ** 2)
+        return gp

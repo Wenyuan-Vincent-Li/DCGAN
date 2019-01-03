@@ -3,7 +3,9 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import scipy.misc
 import os
+import pprint
 
+pp = pprint.PrettyPrinter()
 
 def plot(samples,Nh,Nc,channel,IMG_HEIGHT, IMG_WIDTH):
     fig = plt.figure(figsize=(Nc, Nh))

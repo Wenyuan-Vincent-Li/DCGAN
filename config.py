@@ -72,11 +72,15 @@ class Config(object):
     BATCH_NORM_EPSILON = 1e-5
 
     # Training Property
-    EPOCHS = 10
+    EPOCHS = 50
     LEARNING_RATE = 0.0002
     BETA1 = 0.5
     SAVE_PER_EPOCH = 2
     RESTORE = True
+
+    # Loss Function
+    LOSS = "GAN" ## selection of ["GAN", "WGAN", "WGAN_GP", "LSGAN"]
+    WEIGHT_CLIP = 0.01
 
 
     # Input Pipeline
@@ -98,6 +102,9 @@ class Config(object):
     SUMMARY_SCALAR = True
     SUMMARY_IMAGE = False
     SUMMARY_HISTOGRAM = False
+
+    # SAVE RESULTS:
+    SAMPLE_DIR = None
 
     def __init__(self):
         """Set values of computed attributes."""

@@ -2,7 +2,10 @@
 import os, sys
 import tensorflow as tf
 import scipy.io
-root_dir = os.path.dirname(os.getcwd())
+if os.getcwd().endswith("DCGAN"):
+    root_dir = os.getcwd()
+else:
+    root_dir = os.path.dirname(os.getcwd())
 sys.path.append(root_dir)
 
 class CedarsDataset(object):

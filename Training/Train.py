@@ -4,7 +4,10 @@ TODO: provide a parser access from terminal.
 '''
 ## Import module
 import sys, os
-root_dir = os.path.dirname(os.getcwd())
+if os.getcwd().endswith("DCGAN"):
+    root_dir = os.getcwd()
+else:
+    root_dir = os.path.dirname(os.getcwd())
 sys.path.append(root_dir)
 import tensorflow as tf
 from datetime import datetime
@@ -14,9 +17,6 @@ from Training.train_base import Train_base
 from Training.Saver import Saver
 from Training.Summary import Summary
 from utils import *
-
-SAMPLE_X = np.load(os.path.join(root_dir, "Inputpipeline/prostate_sample_x.npy"))[:64, ...]
-SAMPLE_Y = np.load(os.path.join(root_dir, "Inputpipeline/prostate_sample_y.npy"))[:64, ...]
 
 class Train(Train_base):
     def __init__(self, config, log_dir, save_dir, **kwargs):
@@ -28,7 +28,7 @@ class Train(Train_base):
             self.summary = Summary(log_dir, config, \
                                        log_comments=kwargs.get('comments', ''))
 
-    def train(self, Model, DataSet):
+    def train(self, Model, DataSet, SAMPLE_X = None, SAMPLE_Y = None):
         # Reset tf graph.
         tf.reset_default_graph()
 
@@ -57,7 +57,7 @@ class Train(Train_base):
             # Build up the graph
             G, D, D_logits, D_, D_logits_, z, model = self._build_train_graph(x, y, z, Model)
             # Create the loss:
-            d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_)
+            d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_, x, G, model.discriminator)
 
             # Sample the generated image every epoch
             samples = model.sampler(z, y)
@@ -68,10 +68,22 @@ class Train(Train_base):
             theta_G = [var for var in t_vars if 'g_' in var.name]
             theta_D = [var for var in t_vars if 'd_' in var.name]
 
-            optimizer = self._Adam_optimizer()
-            g_optim = self._train_op(optimizer, g_loss, theta_G)
-            d_optim = self._train_op(optimizer, d_loss, theta_D)
+            if self.config.LOSS == "WGAN" or self.config.LOSS == "WGAN_GP":
+                optimizer = self._RMSProp_optimizer()
+                d_optim_ = self._train_op(optimizer, d_loss, theta_D)
+            elif self.config.LOSS == "GAN" or self.config.LOSS == "LSGAN":
+                optimizer = self._Adam_optimizer()
 
+
+            if self.config.LOSS == "WGAN":
+                with tf.control_dependencies([d_optim_]):
+                    d_optim = tf.group(*(tf.assign(var, \
+                                                   tf.clip_by_value(var, -self.config.WEIGHT_CLIP, \
+                                                                    self.config.WEIGHT_CLIP)) for var in theta_D))
+            else:
+                d_optim = self._train_op(optimizer, d_loss, theta_D)
+
+            g_optim = self._train_op(optimizer, g_loss, theta_G)
 
 
 
@@ -163,7 +175,7 @@ class Train(Train_base):
                     # Update progress bar
                     train_pr_bar.update(i)
                 print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f" \
-                      % (epoch, self.config.EPOCHS, d_loss_o, g_loss_o))
+                      % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o))
 
                 # Save the model per SAVE_PER_EPOCH
                 if epoch % self.config.SAVE_PER_EPOCH == 0:
@@ -185,27 +197,30 @@ class Train(Train_base):
                     self.summary.summary_writer.add_summary(summary_o, epoch)
 
                 print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss_o, g_loss_o))
-                save_images(samples_o, image_manifold_size(samples_o.shape[0]), './samples/train_{:02d}.png'.format(epoch))
+                save_images(samples_o, image_manifold_size(samples_o.shape[0]), \
+                            os.path.join(self.config.SAMPLE_DIR, 'train_{:02d}.png'.format(epoch)))
 
             if self.config.SUMMARY:
                 self.summary.summary_writer.flush()
                 self.summary.summary_writer.close()
 
-            # Save the model after all epochs# from Inputpipeline.mnistDataset import mnistDataSet as DataSet
-# from Inputpipeline.CedarsDataset import CedarsDataset as DataSet
+            # Save the model after all epochs
             save_name = str(epoch)
             saver.save(sess, 'model_' + save_name.zfill(4) + '.ckpt')
             return
 
 
-    def _loss(self, D, D_logits, D_, D_logits_):
-        with tf.name_scope('Loss'):
-            # Discriminator loss
-            d_loss_real = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
-            d_loss_fake = self._sigmoid_cross_entopy_w_logits(tf.zeros_like(D_), D_logits_)
-            d_loss = d_loss_fake + d_loss_real
-            # Generator loss
-            g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
+    def _loss(self, D, D_logits, D_, D_logits_, real = None, fake = None, discriminator = None):
+        if self.config.LOSS == "GAN":
+            d_loss, g_loss = self._loss_GAN(D, D_logits, D_, D_logits_)
+        elif self.config.LOSS == "WGAN":
+            d_loss, g_loss = self._loss_WGAN(D, D_logits, D_, D_logits_)
+        elif self.config.LOSS == "WGAN_GP":
+            d_loss, g_loss = self._loss_WGAN_GP(D, D_logits, D_, D_logits_, real, fake, discriminator)
+        elif self.config.LOSS == "LSGAN":
+            d_loss, g_loss = self._loss_LSGAN(D, D_logits, D_, D_logits_)
+        else:
+            raise Exception("The GAN type you specified is not found!")
         return d_loss, g_loss
 
     def _build_train_graph(self, x, y, z, Model):
@@ -247,7 +262,6 @@ class Train(Train_base):
                     image_batch, init_op = dataset.inputpipline_singleset()
                 except:
                     image_batch, _, init_op = dataset.inputpipline_singleset()
-                    print('Label batch ignored!')
         return image_batch, init_op, dataset
 
     def _input_fn_NP(self, DataSet):
@@ -259,7 +273,7 @@ class Train(Train_base):
         X, y = dataset.load_mnist()
         return X, y
 
-def _main_train_celebA():
+def _main_train_celebA(FLAGS = None):
     from config import Config
     from Model.DCGAN import DCGAN as Model
     from Inputpipeline.celebADataset import celebADataSet as DataSet
@@ -269,7 +283,7 @@ def _main_train_celebA():
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Disable all debugging logs
 
     class tempConfig(Config):
-        NAME = "CELEBA_DCGAN"
+        NAME = "CELEBA_WGAN"
         BATCH_SIZE = 64
         RESTORE = False
         TRAIN_SIZE = 202599
@@ -288,7 +302,18 @@ def _main_train_celebA():
         IMAGE_WIDTH_O = 64
         Y_LABEL = False
 
+        # Loss
+        LOSS = "WGAN"
+        WEIGHT_CLIP = 0.01
+
+        #
+        SAMPLE_DIR = os.path.join(root_dir, "Training/samples")
+
     tmp_config = tempConfig()
+
+    if FLAGS:
+        _customize_config(tmp_config, FLAGS)
+    tmp_config.display()
 
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
@@ -301,7 +326,7 @@ def _main_train_celebA():
     training = Train(tmp_config, log_dir, save_dir, comments=comments)
     training.train(Model, DataSet)
 
-def _main_train_mnist():
+def _main_train_mnist(FLAGS = None):
     from config import Config
     from Model.DCGAN import DCGAN as Model
     from Inputpipeline.mnistDataset import mnistDataSet as DataSet
@@ -317,7 +342,7 @@ def _main_train_mnist():
         TRAIN_SIZE = 70000
         DATA_DIR = os.path.join(root_dir, "Dataset/mnist")
         DATA_NAME = "mnist"
-        EPOCHS = 25
+        EPOCHS = 8
         NUM_CLASSES = 10
 
         Y_LABLE = True
@@ -329,10 +354,17 @@ def _main_train_mnist():
 
         # Crop and resize
         CROP = False
-        IMAGE_HEIGHT_O = 64
-        IMAGE_WIDTH_O = 64
+        IMAGE_HEIGHT_O = 28
+        IMAGE_WIDTH_O = 28
+
+        #
+        SAMPLE_DIR = os.path.join(root_dir, "Training/samples")
 
     tmp_config = tempConfig()
+    if FLAGS:
+        _customize_config(tmp_config, FLAGS)
+        tmp_config.Y_LABLE = True # mnist use the conditional GAN by default
+    tmp_config.display()
 
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
@@ -341,11 +373,16 @@ def _main_train_mnist():
     # Comments log on the current run
     comments = "This training is for prostate using DCGAN."
     comments += tmp_config.config_str() + datetime.now(timezone('US/Eastern')).strftime("%Y-%m-%d_%H_%M_%S")
+
+    # Load sample x and sample Y
+    SAMPLE_X = np.load(os.path.join(root_dir, "Inputpipeline/mnist_sample_x.npy"))[:64, ...]
+    SAMPLE_Y = np.load(os.path.join(root_dir, "Inputpipeline/mnist_sample_y.npy"))[:64, ...]
+
     # Create a training object
     training = Train(tmp_config, log_dir, save_dir, comments=comments)
-    training.train(Model)
+    training.train(Model, DataSet, SAMPLE_X, SAMPLE_Y)
 
-def _main_train_prostate():
+def _main_train_prostate(FLAGS = None):
     from config import Config
     from Model.DCGAN import DCGAN as Model
     from Inputpipeline.CedarsDataset import CedarsDataset as DataSet
@@ -357,11 +394,11 @@ def _main_train_prostate():
     class tempConfig(Config):
         NAME = "prostate_DCGAN"
         BATCH_SIZE = 64
-        RESTORE = False
+        RESTORE = True
         TRAIN_SIZE = 62073
         DATA_DIR = os.path.join(root_dir, "Dataset/prostate")
         DATA_NAME = "prostate"
-        EPOCHS = 16
+        EPOCHS = 50
         NUM_CLASSES = 2
 
         Y_LABLE = True
@@ -376,7 +413,14 @@ def _main_train_prostate():
         IMAGE_HEIGHT_O = 64
         IMAGE_WIDTH_O = 64
 
+        #
+        SAMPLE_DIR = os.path.join(root_dir, "Training/samples")
+
     tmp_config = tempConfig()
+
+    if FLAGS:
+        _customize_config(tmp_config, FLAGS)
+    tmp_config.display()
 
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
@@ -385,9 +429,28 @@ def _main_train_prostate():
     # Comments log on the current run
     comments = "This training is for prostate using DCGAN."
     comments += tmp_config.config_str() + datetime.now(timezone('US/Eastern')).strftime("%Y-%m-%d_%H_%M_%S")
+
+    # Load sample x and sample Y
+    SAMPLE_X = np.load(os.path.join(root_dir, "Inputpipeline/prostate_sample_x.npy"))[:64, ...]
+    SAMPLE_Y = np.load(os.path.join(root_dir, "Inputpipeline/prostate_sample_y.npy"))[:64, ...]
+
+
     # Create a training object
     training = Train(tmp_config, log_dir, save_dir, comments=comments)
-    training.train(Model, DataSet)
+    training.train(Model, DataSet, SAMPLE_X, SAMPLE_Y)
+
+def _customize_config(tmp_config, FLAGS):
+    tmp_config.NAME = FLAGS.name
+    tmp_config.EPOCHS = FLAGS.epoch
+    tmp_config.LEARNING_RATE = FLAGS.learning_rate
+    tmp_config.BETA1 = FLAGS.beta1
+    tmp_config.BATCH_SIZE = FLAGS.batch_size
+    tmp_config.LOSS = FLAGS.GAN_type
+    tmp_config.RESTORE = FLAGS.restore
+    tmp_config.SAMPLE_DIR = os.path.join(os.path.dirname(tmp_config.SAMPLE_DIR), FLAGS.sample_dir)
+    tmp_config.Y_LABLE = FLAGS.C_GAN
 
 if __name__ == "__main__":
-    _main_train_prostate()
+    # _main_train_prostate()
+    # _main_train_mnist()
+    _main_train_celebA()

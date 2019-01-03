@@ -6,7 +6,10 @@ This script demonstrate an example of inputpipline on using prostate dataset
 @author: wenyuan
 """
 import os, sys
-root_dir = os.path.dirname(os.getcwd())
+if os.getcwd().endswith("DCGAN"):
+    root_dir = os.getcwd()
+else:
+    root_dir = os.path.dirname(os.getcwd())
 sys.path.append(root_dir)
 import tensorflow as tf
 import numpy as np
