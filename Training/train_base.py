@@ -123,8 +123,8 @@ class Train_base(object):
             return inter
 
         x = interpolate(real, fake)
-        pred = f(x, reuse = True)
+        _, pred = f(x, reuse = True)
         gradients = tf.gradients(pred, x)[0]
-        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=range(1, x.shape.ndims)))
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis = 1))
         gp = tf.reduce_mean((slopes - 1.) ** 2)
         return gp

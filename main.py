@@ -25,7 +25,6 @@ def main(_):
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = FLAGS.GPU
 
-
     if FLAGS.train:
         if FLAGS.dataset == "mnist":
             train._main_train_mnist(FLAGS)
