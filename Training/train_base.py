@@ -83,7 +83,7 @@ class Train_base(object):
             g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
         return d_loss, g_loss
 
-    def _loss_cGP_GAN(self, D, D_logits, D_, D_logits_, real):
+    def _loss_cGPGAN(self, D, D_logits, D_, D_logits_, real):
         """
         which training methods for gans do actually converge?
         https://arxiv.org/pdf/1801.04406.pdf
