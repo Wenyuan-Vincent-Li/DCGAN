@@ -219,6 +219,8 @@ class Train(Train_base):
             d_loss, g_loss = self._loss_WGAN_GP(D, D_logits, D_, D_logits_, real, fake, discriminator)
         elif self.config.LOSS == "LSGAN":
             d_loss, g_loss = self._loss_LSGAN(D, D_logits, D_, D_logits_)
+        elif self.config.LOSS == "cGPGAN":
+            d_loss, g_loss = self._loss_cGPGAN(D, D_logits, D_, D_logits_, real)
         else:
             raise Exception("The GAN type you specified is not found!")
         return d_loss, g_loss

@@ -83,6 +83,27 @@ class Train_base(object):
             g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
         return d_loss, g_loss
 
+    def _loss_cGP_GAN(self, D, D_logits, D_, D_logits_, real):
+        """
+        which training methods for gans do actually converge?
+        https://arxiv.org/pdf/1801.04406.pdf
+        :param D:
+        :param D_logits:
+        :param D_:
+        :param D_logits_:
+        :param real:
+        :return:
+        """
+        with tf.name_scope('Loss'):
+            # Discriminator loss
+            d_loss_real = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
+            d_loss_fake = self._sigmoid_cross_entopy_w_logits(tf.zeros_like(D_), D_logits_)
+            d_loss_gp = self._zero_centered_gradient_penalty(D_logits, real)
+            d_loss = d_loss_fake + d_loss_real + d_loss_gp * 10
+            # Generator loss
+            g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
+        return d_loss, g_loss
+
     def _loss_WGAN(self, D, D_logits, D_, D_logits_):
         with tf.name_scope('Loss'):
             # Discriminator loss
@@ -127,4 +148,10 @@ class Train_base(object):
         gradients = tf.gradients(pred, x)[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis = 1))
         gp = tf.reduce_mean((slopes - 1.) ** 2)
+        return gp
+
+    def _zero_centered_gradient_penalty(self, D_logits, real):
+        gradients = tf.gradients(D_logits, real)[0]
+        slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis = 1))
+        gp = tf.reduce_mean(tf.square(slopes))
         return gp
