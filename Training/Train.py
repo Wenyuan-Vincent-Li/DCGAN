@@ -71,7 +71,7 @@ class Train(Train_base):
             if self.config.LOSS == "WGAN" or self.config.LOSS == "WGAN_GP":
                 optimizer = self._RMSProp_optimizer()
                 d_optim_ = self._train_op(optimizer, d_loss, theta_D)
-            elif self.config.LOSS == "GAN" or self.config.LOSS == "LSGAN":
+            elif self.config.LOSS == "GAN" or self.config.LOSS == "LSGAN" or self.config.LOSS == "cGPGAN":
                 optimizer = self._Adam_optimizer()
 
 
