@@ -57,7 +57,7 @@ class Train(Train_base):
             # Build up the graph
             G, D, D_logits, D_, D_logits_, z, model = self._build_train_graph(x, y, z, Model)
             # Create the loss:
-            d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_, x, G, model.discriminator)
+            d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_, x, G, model.discriminator, y)
 
             # Sample the generated image every epoch
             samples = model.sampler(z, y)
@@ -210,13 +210,13 @@ class Train(Train_base):
             return
 
 
-    def _loss(self, D, D_logits, D_, D_logits_, real = None, fake = None, discriminator = None):
+    def _loss(self, D, D_logits, D_, D_logits_, real = None, fake = None, discriminator = None, label = None):
         if self.config.LOSS == "GAN":
             d_loss, g_loss = self._loss_GAN(D, D_logits, D_, D_logits_)
         elif self.config.LOSS == "WGAN":
             d_loss, g_loss = self._loss_WGAN(D, D_logits, D_, D_logits_)
         elif self.config.LOSS == "WGAN_GP":
-            d_loss, g_loss = self._loss_WGAN_GP(D, D_logits, D_, D_logits_, real, fake, discriminator)
+            d_loss, g_loss = self._loss_WGAN_GP(D, D_logits, D_, D_logits_, real, fake, discriminator, label)
         elif self.config.LOSS == "LSGAN":
             d_loss, g_loss = self._loss_LSGAN(D, D_logits, D_, D_logits_)
         elif self.config.LOSS == "cGPGAN":

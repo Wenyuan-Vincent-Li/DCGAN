@@ -113,12 +113,12 @@ class Train_base(object):
             g_loss = -tf.reduce_mean(D_logits_)
         return d_loss, g_loss
 
-    def _loss_WGAN_GP(self, D, D_logits, D_, D_logits_, real, fake, discriminator):
+    def _loss_WGAN_GP(self, D, D_logits, D_, D_logits_, real, fake, discriminator, label = None):
         ## TODO: input function
         with tf.name_scope('Loss'):
             # Discriminator loss
             wd = tf.reduce_mean(D_logits) - tf.reduce_mean(D_logits_)
-            gp = self._gradient_penalty(real, fake, discriminator)
+            gp = self._gradient_penalty(real, fake, discriminator, label)
             d_loss = -wd + gp * 10.0
             # Generator loss
             g_loss = -tf.reduce_mean(D_logits_)
@@ -135,7 +135,7 @@ class Train_base(object):
         return d_loss, g_loss
 
 
-    def _gradient_penalty(self, real, fake, f):
+    def _gradient_penalty(self, real, fake, f, label):
         def interpolate(a, b):
             shape = tf.concat((tf.shape(a)[0:1], tf.tile([1], [a.shape.ndims - 1])), axis=0)
             alpha = tf.random_uniform(shape=shape, minval=0., maxval=1.)
@@ -144,7 +144,7 @@ class Train_base(object):
             return inter
 
         x = interpolate(real, fake)
-        _, pred = f(x, reuse = True)
+        _, pred = f(x, y = label, reuse = True)
         gradients = tf.gradients(pred, x)[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis = 1))
         gp = tf.reduce_mean((slopes - 1.) ** 2)
