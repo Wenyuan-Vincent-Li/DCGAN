@@ -77,29 +77,29 @@ class DCGAN(model_base.GAN_Base):
                     return h3
                 elif self.config.DATA_NAME == "prostate":
                     # project 'z' and reshape
-                    # yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
+                    yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
                     z = tf.concat([z, y], 1)
 
                     z = self._linear_fc(z, 64 * 8 * 4 * 4, 'g_h0_lin')
                     h0 = tf.reshape(z, [-1, 4, 4, 64 * 8])
                     h0 = self._batch_norm_contrib(h0, 'g_bn0', train=True)
                     h0 = tf.nn.relu(h0, 'g_rl0')  ## [4, 4]
-                    # h0 = self._conv_cond_concat(h0, yb)
+                    h0 = self._conv_cond_concat(h0, yb)
 
                     h1 = self._deconv2d(h0, 64 * 4, name='g_dconv0')
                     h1 = self._batch_norm_contrib(h1, 'g_bn1', train=True)
                     h1 = tf.nn.relu(h1, 'g_rl1')  ## [8, 8]
-                    # h1 = self._conv_cond_concat(h1, yb)
+                    h1 = self._conv_cond_concat(h1, yb)
 
                     h2 = self._deconv2d(h1, 64 * 2, name='g_dconv1')
                     h2 = self._batch_norm_contrib(h2, 'g_bn2', train=True)
                     h2 = tf.nn.relu(h2, 'g_rl2')  ## [16, 16]
-                    # h2 = self._conv_cond_concat(h2, yb)
+                    h2 = self._conv_cond_concat(h2, yb)
 
                     h3 = self._deconv2d(h2, 64 * 1, name='g_dconv2')
                     h3 = self._batch_norm_contrib(h3, 'g_bn3', train=True)
                     h3 = tf.nn.relu(h3, 'g_rl3')  ## [32, 32]
-                    # h3 = self._conv_cond_concat(h3, yb)
+                    h3 = self._conv_cond_concat(h3, yb)
 
                     h4 = self._deconv2d(h3, 3, name='g_dconv3')
                     h4 = tf.nn.tanh(h4)
@@ -161,32 +161,27 @@ class DCGAN(model_base.GAN_Base):
 
                     return tf.nn.sigmoid(h3), h3
                 elif self.config.DATA_NAME == "prostate":
-                    # yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
-                    # image = self._conv_cond_concat(image, yb)
+                    yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
+                    image = self._conv_cond_concat(image, yb)
 
-                    # h0 = self._conv2d(image, 64 + self.config.NUM_CLASSES, name='d_h0_conv')
                     h0 = self._conv2d(image, 64, name='d_h0_conv')
                     h0 = tf.nn.leaky_relu(h0)
-                    # h0 = self._conv_cond_concat(h0, yb)
+                    h0 = self._conv_cond_concat(h0, yb)
 
-                    # h1 = self._conv2d(h0, 64 * 2 + self.config.NUM_CLASSES, name='d_h1_conv')
                     h1 = self._conv2d(h0, 64 * 2, name='d_h1_conv')
                     h1 = self._batch_norm_contrib(h1, name='d_h1_bn', train=True)
                     h1 = tf.nn.leaky_relu(h1)
-                    # h1 = self._conv_cond_concat(h1, yb)
+                    h1 = self._conv_cond_concat(h1, yb)
 
-                    # h2 = self._conv2d(h1, 64 * 4 + self.config.NUM_CLASSES, name='d_h2_conv')
                     h2 = self._conv2d(h1, 64 * 4, name='d_h2_conv')
                     h2 = self._batch_norm_contrib(h2, name='d_h2_bn', train=True)
                     h2 = tf.nn.leaky_relu(h2)
-                    # h2 = self._conv_cond_concat(h2, yb)
+                    h2 = self._conv_cond_concat(h2, yb)
 
-
-                    # h3 = self._conv2d(h2, 64 * 8 + self.config.NUM_CLASSES, name='d_h3_conv')
                     h3 = self._conv2d(h2, 64 * 8, name='d_h3_conv')
                     h3 = self._batch_norm_contrib(h3, name='d_h3_bn', train=True)
                     h3 = tf.nn.leaky_relu(h3)
-                    # h3 = self._conv_cond_concat(h3, yb)
+                    h3 = self._conv_cond_concat(h3, yb)
 
                     h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
                     h4 = tf.concat([h4, y], 1)
@@ -235,7 +230,7 @@ class DCGAN(model_base.GAN_Base):
                 return h4
             else:
                 if self.config.DATA_NAME == "mnist":
-                    # yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])  ## [None, 1, 1, 10]
+                    yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])  ## [None, 1, 1, 10]
                     z = tf.concat([z, y], 1)  # concat the z and y in the latent space
 
                     ## first linear layer
@@ -251,13 +246,13 @@ class DCGAN(model_base.GAN_Base):
 
                     ## reshape to conv feature pack and concat with label condition
                     h1 = tf.reshape(h1, [self.config.BATCH_SIZE, 7, 7, 64 * 2])
-                    # h1 = self._conv_cond_concat(h1, yb)
+                    h1 = self._conv_cond_concat(h1, yb)
 
                     ## first layer deconv
                     h2 = self._deconv2d(h1, 128, name='g_dconv0')
                     h2 = self._batch_norm_contrib(h2, 'g_bn2', train = False)
                     h2 = tf.nn.relu(h2, 'g_rl2')
-                    # h2 = self._conv_cond_concat(h2, yb)
+                    h2 = self._conv_cond_concat(h2, yb)
 
                     ## output layer: sigmoid to map the data range to [0, 1]
                     h3 = self._deconv2d(h2, 1, name='g_dconv1')
@@ -265,29 +260,29 @@ class DCGAN(model_base.GAN_Base):
                     return h3
                 elif self.config.DATA_NAME == "prostate":
                     # project 'z' and reshape
-                    # yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
+                    yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
                     z = tf.concat([z, y], 1)
 
                     z = self._linear_fc(z, 64 * 8 * 4 * 4, 'g_h0_lin')
                     h0 = tf.reshape(z, [-1, 4, 4, 64 * 8])
                     h0 = self._batch_norm_contrib(h0, 'g_bn0', train=True)
                     h0 = tf.nn.relu(h0, 'g_rl0')  ## [4, 4]
-                    # h0 = self._conv_cond_concat(h0, yb)
+                    h0 = self._conv_cond_concat(h0, yb)
 
                     h1 = self._deconv2d(h0, 64 * 4, name='g_dconv0')
                     h1 = self._batch_norm_contrib(h1, 'g_bn1', train=True)
                     h1 = tf.nn.relu(h1, 'g_rl1')  ## [8, 8]
-                    # h1 = self._conv_cond_concat(h1, yb)
+                    h1 = self._conv_cond_concat(h1, yb)
 
                     h2 = self._deconv2d(h1, 64 * 2, name='g_dconv1')
                     h2 = self._batch_norm_contrib(h2, 'g_bn2', train=True)
                     h2 = tf.nn.relu(h2, 'g_rl2')  ## [16, 16]
-                    # h2 = self._conv_cond_concat(h2, yb)
+                    h2 = self._conv_cond_concat(h2, yb)
 
                     h3 = self._deconv2d(h2, 64 * 1, name='g_dconv2')
                     h3 = self._batch_norm_contrib(h3, 'g_bn3', train=True)
                     h3 = tf.nn.relu(h3, 'g_rl3')  ## [32, 32]
-                    # h3 = self._conv_cond_concat(h3, yb)
+                    h3 = self._conv_cond_concat(h3, yb)
 
                     h4 = self._deconv2d(h3, 3, name='g_dconv3')
                     h4 = tf.nn.tanh(h4)
