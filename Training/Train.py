@@ -451,7 +451,7 @@ def _customize_config(tmp_config, FLAGS):
     tmp_config.RESTORE = FLAGS.restore
     tmp_config.SAMPLE_DIR = os.path.join(os.path.dirname(tmp_config.SAMPLE_DIR), FLAGS.sample_dir)
     tmp_config.Y_LABLE = FLAGS.C_GAN
-    tmp_config.LABEL_SMOOTH = FALGS.label_smooth
+    tmp_config.LABEL_SMOOTH = FLAGS.label_smooth
 
 if __name__ == "__main__":
     # _main_train_prostate()
