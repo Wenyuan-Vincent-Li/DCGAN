@@ -77,6 +77,7 @@ class Config(object):
     BETA1 = 0.5
     SAVE_PER_EPOCH = 2
     RESTORE = True
+    LABEL_SMOOTH = False
 
     # Loss Function
     LOSS = "GAN" ## selection of ["GAN", "WGAN", "WGAN_GP", "LSGAN"]

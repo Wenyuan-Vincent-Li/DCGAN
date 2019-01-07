@@ -18,6 +18,7 @@ flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image s
 flags.DEFINE_boolean("train", False, "True for training, False for testing [False]")
 flags.DEFINE_boolean("C_GAN", False, "True for using conditional GAN")
 flags.DEFINE_string("GPU", "0", "Which GPU used to process the data")
+flags.DEFINE_boolean("label_smooth", False, "True for using one-side label smoothing, only used for [GAN, cGPGAN, LSGAN]")
 FLAGS = flags.FLAGS
 
 

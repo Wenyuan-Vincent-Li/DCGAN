@@ -76,7 +76,10 @@ class Train_base(object):
         """
         with tf.name_scope('Loss'):
             # Discriminator loss
-            d_loss_real = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
+            if self.config.LABEL_SMOOTH:
+                d_loss_real = self._sigmoid_cross_entopy_w_logits(0.9 * tf.ones_like(D), D_logits)
+            else:
+                d_loss_real = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
             d_loss_fake = self._sigmoid_cross_entopy_w_logits(tf.zeros_like(D_), D_logits_)
             d_loss = d_loss_fake + d_loss_real
             # Generator loss
@@ -96,7 +99,10 @@ class Train_base(object):
         """
         with tf.name_scope('Loss'):
             # Discriminator loss
-            d_loss_real = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
+            if self.config.LABEL_SMOOTH:
+                d_loss_real = self._sigmoid_cross_entopy_w_logits(0.9 * tf.ones_like(D), D_logits)
+            else:
+                d_loss_real = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
             d_loss_fake = self._sigmoid_cross_entopy_w_logits(tf.zeros_like(D_), D_logits_)
             d_loss_gp = self._zero_centered_gradient_penalty(D_logits, real)
             d_loss = d_loss_fake + d_loss_real + d_loss_gp * 10
@@ -127,7 +133,10 @@ class Train_base(object):
     def _loss_LSGAN(self, D, D_logits, D_, D_logits_):
         with tf.name_scope('Loss'):
             # Discriminator loss
-            d_r_loss = tf.losses.mean_squared_error(tf.ones_like(D_logits), D_logits)
+            if self.config.LABEL_SMOOTH:
+                d_r_loss = self._sigmoid_cross_entopy_w_logits(0.9 * tf.ones_like(D), D_logits)
+            else:
+                d_r_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
             d_f_loss = tf.losses.mean_squared_error(tf.zeros_like(D_logits_), D_logits_)
             d_loss = (d_r_loss + d_f_loss) / 2.0
             # Generator loss
