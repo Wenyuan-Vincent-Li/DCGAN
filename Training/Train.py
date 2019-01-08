@@ -176,14 +176,14 @@ class Train(Train_base):
 
                     # Update progress bar
                     train_pr_bar.update(i)
-                    print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f" \
-                          % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o))
 
                 # Save the model per SAVE_PER_EPOCH
                 if epoch % self.config.SAVE_PER_EPOCH == 0:
                     save_name = str(epoch)
                     saver.save(sess, 'model_' + save_name.zfill(4) + '.ckpt')
 
+                print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f" \
+                      % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o))
                 ## Sample image after every epoch
                 if not self.config.Y_LABLE:
                     samples_o, d_loss_o, g_loss_o, summary_o = sess.run([samples, d_loss, g_loss, merged_summary],
