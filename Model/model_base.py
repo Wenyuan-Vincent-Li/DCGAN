@@ -108,3 +108,23 @@ class GAN_Base(object):
                                  kernel_initializer = tf.truncated_normal_initializer(stddev = stddev),
                                  name = name)
         return x
+
+    def _minibatch_discrimination(self, input, num_kernels, dim_per_kernel = 5, name = "minibatch_discrim"):
+        with tf.name_scope(name):
+            batch_size = input.shape[0]
+            num_features = input.shape[1]
+            W = tf.get_variable(name="w",
+                                shape=[num_features, num_kernels * dim_per_kernel],
+                                initializer=tf.contrib.layers.xavier_initializer())
+            b = tf.get_variable(name="b",
+                                shape=[num_kernels],
+                                initializer=tf.constant_initializer(0.0))
+            activation = tf.matmul(input, W)
+            activation = tf.reshape(activation, [batch_size, num_kernels, dim_per_kernel])
+            tmp1 = tf.expand_dims(activation, 3)
+            tmp2 = tf.transpose(activation, perm=[1, 2, 0])
+            tmp2 = tf.expand_dims(tmp2, 0)
+            abs_diff = tf.reduce_sum(tf.abs(tmp1 - tmp2), reduction_indices=[2])
+            f1 = tf.reduce_sum(tf.exp(-abs_diff), reduction_indices=[2])
+            f1 = f1 + b
+        return f1

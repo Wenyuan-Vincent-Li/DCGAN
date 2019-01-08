@@ -47,7 +47,7 @@ class DCGAN(model_base.GAN_Base):
 
             else: ## use conditional GAN
                 if self.config.DATA_NAME == "mnist":
-                    # yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES]) ## [None, 1, 1, 10]
+                    yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES]) ## [None, 1, 1, 10]
                     z = tf.concat([z, y], 1) # concat the z and y in the latent space
 
                     ## first linear layer
@@ -63,13 +63,13 @@ class DCGAN(model_base.GAN_Base):
 
                     ## reshape to conv feature pack and concat with label condition
                     h1 = tf.reshape(h1, [self.config.BATCH_SIZE, 7, 7, 64 * 2])
-                    # h1 = self._conv_cond_concat(h1, yb)
+                    h1 = self._conv_cond_concat(h1, yb)
 
                     ## first layer deconv
                     h2 = self._deconv2d(h1, 128, name = 'g_dconv0')
                     h2 = self._batch_norm_contrib(h2, 'g_bn2', train = True)
                     h2 = tf.nn.relu(h2, 'g_rl2')
-                    # h2 = self._conv_cond_concat(h2, yb)
+                    h2 = self._conv_cond_concat(h2, yb)
 
                     ## output layer: sigmoid to map the data range to [0, 1]
                     h3 = self._deconv2d(h2, 1, name = 'g_dconv1')
@@ -129,8 +129,12 @@ class DCGAN(model_base.GAN_Base):
                 fm = h3
 
                 h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
-                h4 = self._linear_fc(h4, 1, 'd_h4_lin')
 
+                if self.config.LOSS == "minibatchGAN":
+                    f = self._minibatch_discrimination(h4, 100)
+                    h4 = tf.concat([h4, f], 1)
+
+                h4 = self._linear_fc(h4, 1, 'd_h4_lin')
                 return tf.nn.sigmoid(h4), h4, fm
 
             else:
@@ -158,6 +162,9 @@ class DCGAN(model_base.GAN_Base):
                     h2 = self._batch_norm_contrib(h2, name = 'd_h2_bn', train = True)
                     h2= tf.nn.leaky_relu(h2, alpha = 0.2, name = 'd_leaky2')
                     h2 = tf.concat([h2, y], 1)
+                    if self.config.LOSS == "minibatchGAN":
+                        f = self._minibatch_discrimination(h2, 100)
+                        h2 = tf.concat([h2, f], 1)
 
                     h3 = self._linear_fc(h2, 1, 'd_h3_lin')
 
@@ -187,9 +194,13 @@ class DCGAN(model_base.GAN_Base):
                     h3 = self._conv_cond_concat(h3, yb)
 
                     h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
+
+                    if self.config.LOSS == "minibatchGAN":
+                        f = self._minibatch_discrimination(h4, 100)
+                        h4 = tf.concat([h4, f], 1)
+
                     h4 = tf.concat([h4, y], 1)
                     h4 = self._linear_fc(h4, 1, 'd_h4_lin')
-
                     return tf.nn.sigmoid(h4), h4, fm
 
     def forward_pass(self, z, image, label = None):

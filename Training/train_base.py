@@ -86,6 +86,7 @@ class Train_base(object):
             g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
         return d_loss, g_loss
 
+
     def _loss_FMGAN(self, D, D_logits, D_, D_logits_, real, fake, real_fm, fake_fm, discriminator, label = None):
         with tf.name_scope('Loss'):
             # Discriminator loss

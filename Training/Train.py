@@ -71,7 +71,7 @@ class Train(Train_base):
             if self.config.LOSS in ["WGAN", "WGAN_GP", "FMGAN"]:
                 optimizer = self._RMSProp_optimizer()
                 d_optim_ = self._train_op(optimizer, d_loss, theta_D)
-            elif self.config.LOSS == "GAN" or self.config.LOSS == "LSGAN" or self.config.LOSS == "cGPGAN":
+            elif self.config.LOSS in ["GAN", "LSGAN", "cGPGAN", "minibatchGAN"]:
                 optimizer = self._Adam_optimizer()
 
 
@@ -167,10 +167,12 @@ class Train(Train_base):
 
                         # Update generator
                         _ = sess.run([g_optim],
-                                     feed_dict = {y: label_batch_o,
+                                     feed_dict = {x: image_batch_o,
+                                                  y: label_batch_o,
                                                   z: batch_z})
                         _, g_loss_o = sess.run([g_optim, g_loss],
-                                     feed_dict = {y: label_batch_o,
+                                     feed_dict = {x: image_batch_o,
+                                                  y: label_batch_o,
                                                   z: batch_z})
 
 
@@ -214,7 +216,7 @@ class Train(Train_base):
 
     def _loss(self, D, D_logits, D_, D_logits_, real = None, fake = None, real_fm = None, fake_fm = None,
               discriminator = None, label = None):
-        if self.config.LOSS == "GAN":
+        if self.config.LOSS == "GAN" or self.config.LOSS == "minibatchGAN":
             d_loss, g_loss = self._loss_GAN(D, D_logits, D_, D_logits_)
         elif self.config.LOSS == "WGAN":
             d_loss, g_loss = self._loss_WGAN(D, D_logits, D_, D_logits_)
