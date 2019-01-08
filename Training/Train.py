@@ -157,9 +157,7 @@ class Train(Train_base):
                         _, g_loss_o = sess.run([g_optim, g_loss],
                                                feed_dict={x: image_batch_o,
                                                           z: batch_z})
-                        print(epoch, d_loss_o, g_loss_o)
-                        print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f" \
-                              % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o))
+
                     else:
                         # Update discriminator
                         _, d_loss_o = sess.run([d_optim, d_loss],
@@ -178,6 +176,8 @@ class Train(Train_base):
 
                     # Update progress bar
                     train_pr_bar.update(i)
+                    print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f" \
+                          % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o))
 
                 # Save the model per SAVE_PER_EPOCH
                 if epoch % self.config.SAVE_PER_EPOCH == 0:
