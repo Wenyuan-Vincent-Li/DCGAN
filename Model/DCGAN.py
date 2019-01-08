@@ -126,11 +126,12 @@ class DCGAN(model_base.GAN_Base):
                 h3 = self._conv2d(h2, 64 * 8, name = 'd_h3_conv')
                 h3 = self._batch_norm_contrib(h3, name = 'd_h3_bn', train = True)
                 h3 = tf.nn.leaky_relu(h3)
+                fm = h3
 
                 h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
                 h4 = self._linear_fc(h4, 1, 'd_h4_lin')
 
-                return tf.nn.sigmoid(h4), h4
+                return tf.nn.sigmoid(h4), h4, fm
 
             else:
                 if self.config.DATA_NAME == "mnist":
@@ -147,6 +148,7 @@ class DCGAN(model_base.GAN_Base):
                     h1 = self._batch_norm_contrib(h1, name = 'd_h1_bn', train = True)
                     h1 = tf.nn.leaky_relu(h1, alpha = 0.2, name = 'd_leaky1')
 
+                    fm = h1
                     # reshape and concat the label
                     h1 = tf.reshape(h1, [self.config.BATCH_SIZE, -1])
                     h1 = tf.concat([h1, y], 1)
@@ -159,7 +161,7 @@ class DCGAN(model_base.GAN_Base):
 
                     h3 = self._linear_fc(h2, 1, 'd_h3_lin')
 
-                    return tf.nn.sigmoid(h3), h3
+                    return tf.nn.sigmoid(h3), h3, fm
                 elif self.config.DATA_NAME == "prostate":
                     yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
                     image = self._conv_cond_concat(image, yb)
@@ -181,13 +183,14 @@ class DCGAN(model_base.GAN_Base):
                     h3 = self._conv2d(h2, 64 * 8, name='d_h3_conv')
                     h3 = self._batch_norm_contrib(h3, name='d_h3_bn', train=True)
                     h3 = tf.nn.leaky_relu(h3)
+                    fm = h3
                     h3 = self._conv_cond_concat(h3, yb)
 
                     h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
                     h4 = tf.concat([h4, y], 1)
                     h4 = self._linear_fc(h4, 1, 'd_h4_lin')
 
-                    return tf.nn.sigmoid(h4), h4
+                    return tf.nn.sigmoid(h4), h4, fm
 
     def forward_pass(self, z, image, label = None):
         """
@@ -198,9 +201,9 @@ class DCGAN(model_base.GAN_Base):
         :return:
         """
         G = self.generator(z, label)
-        D, D_logits = self.discriminator(image, label, reuse = False)
-        D_, D_logits_ = self.discriminator(G, label, reuse = True)
-        return G, D, D_logits, D_, D_logits_
+        D, D_logits, fm = self.discriminator(image, label, reuse = False)
+        D_, D_logits_, fm_ = self.discriminator(G, label, reuse = True)
+        return G, D, D_logits, D_, D_logits_, fm, fm_
 
     def sampler(self, z, y = None):
         with tf.variable_scope("generator") as scope:

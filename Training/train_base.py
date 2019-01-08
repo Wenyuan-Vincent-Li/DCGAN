@@ -86,6 +86,18 @@ class Train_base(object):
             g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
         return d_loss, g_loss
 
+    def _loss_FMGAN(self, D, D_logits, D_, D_logits_, real, fake, real_fm, fake_fm, discriminator, label = None):
+        with tf.name_scope('Loss'):
+            # Discriminator loss
+            wd = tf.reduce_mean(D_logits) - tf.reduce_mean(D_logits_)
+            gp = self._gradient_penalty(real, fake, discriminator, label)
+            d_loss = -wd + gp * 10.0
+            # Generator loss
+            fm_loss = tf.reduce_mean(self._huber_loss(real_fm, fake_fm))
+            g_loss = 0 * -tf.reduce_mean(D_logits_) + fm_loss
+
+        return d_loss, g_loss
+
     def _loss_cGPGAN(self, D, D_logits, D_, D_logits_, real):
         """
         which training methods for gans do actually converge?
@@ -153,7 +165,7 @@ class Train_base(object):
             return inter
 
         x = interpolate(real, fake)
-        _, pred = f(x, y = label, reuse = True)
+        _, pred, _ = f(x, y = label, reuse = True)
         gradients = tf.gradients(pred, x)[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis = 1))
         gp = tf.reduce_mean((slopes - 1.) ** 2)
@@ -164,3 +176,10 @@ class Train_base(object):
         slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis = 1))
         gp = tf.reduce_mean(tf.square(slopes))
         return gp
+
+    def _huber_loss(self, labels, predictions, delta = 1.0):
+        residual = tf.abs(predictions - labels)
+        condition = tf.less(residual, delta)
+        small_res = 0.5 * tf.square(residual)
+        large_res = delta * residual - 0.5 * tf.square(delta)
+        return tf.where(condition, small_res, large_res)
