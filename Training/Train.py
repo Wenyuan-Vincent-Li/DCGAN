@@ -116,7 +116,8 @@ class Train(Train_base):
                 init_var = tf.group(tf.global_variables_initializer(), \
                                     tf.local_variables_initializer())
                 sess.run(init_var)
-            sample_z = np.random.uniform(-1, 1, size=(64, 100))
+            # sample_z = np.random.uniform(-1, 1, size=(64, 100))
+            sample_z = np.random.normal(size = (self.config.BATCH_SIZE, 100))
             if not self.config.Y_LABLE:
                 sess.run(init_op)
                 sample_x = sess.run(image_batch)
