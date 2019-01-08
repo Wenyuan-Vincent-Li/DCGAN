@@ -57,7 +57,7 @@ class Train(Train_base):
             # Build up the graph
             G, D, D_logits, D_, D_logits_, fm, fm_, z, model = self._build_train_graph(x, y, z, Model)
             # Create the loss:
-            d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_, x, G, x, G, model.discriminator, y)
+            d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_, x, G, fm, fm_, model.discriminator, y)
 
             # Sample the generated image every epoch
             samples = model.sampler(z, y)
