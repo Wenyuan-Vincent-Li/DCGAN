@@ -11,7 +11,7 @@ flags.DEFINE_integer("epoch", 50, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
-flags.DEFINE_string("GAN_type", "GAN", "The type of GAN [GAN, WGAN, WGAN_GP, LSGAN, cGPGAN, FMGAN, minibatchGAN]")
+flags.DEFINE_string("GAN_type", "GAN", "The type of GAN [GAN, WGAN, WGAN_GP, LSGAN, cGPGAN, FMGAN]")
 flags.DEFINE_string("dataset", "mnist", "The name of dataset [celebA, mnist, prostate]")
 flags.DEFINE_boolean("restore", False, "Weather to restore the pre-trained weights")
 flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image samples [samples]")
@@ -19,6 +19,7 @@ flags.DEFINE_boolean("train", False, "True for training, False for testing [Fals
 flags.DEFINE_boolean("C_GAN", False, "True for using conditional GAN")
 flags.DEFINE_string("GPU", "0", "Which GPU used to process the data")
 flags.DEFINE_boolean("label_smooth", False, "True for using one-side label smoothing, only used for [GAN, cGPGAN, LSGAN]")
+flags.DEFINE_boolean("miniBatchDis", False, "True for using miniBatchDis")
 FLAGS = flags.FLAGS
 
 

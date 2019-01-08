@@ -130,7 +130,7 @@ class DCGAN(model_base.GAN_Base):
 
                 h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
 
-                if self.config.LOSS == "minibatchGAN":
+                if self.config.MINIBATCH_DIS:
                     f = self._minibatch_discrimination(h4, 100)
                     h4 = tf.concat([h4, f], 1)
 
@@ -162,7 +162,7 @@ class DCGAN(model_base.GAN_Base):
                     h2 = self._batch_norm_contrib(h2, name = 'd_h2_bn', train = True)
                     h2= tf.nn.leaky_relu(h2, alpha = 0.2, name = 'd_leaky2')
                     h2 = tf.concat([h2, y], 1)
-                    if self.config.LOSS == "minibatchGAN":
+                    if self.config.MINIBATCH_DIS:
                         f = self._minibatch_discrimination(h2, 100)
                         h2 = tf.concat([h2, f], 1)
 
@@ -195,7 +195,7 @@ class DCGAN(model_base.GAN_Base):
 
                     h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
 
-                    if self.config.LOSS == "minibatchGAN":
+                    if self.config.MINIBATCH_DIS:
                         f = self._minibatch_discrimination(h4, 100)
                         h4 = tf.concat([h4, f], 1)
 

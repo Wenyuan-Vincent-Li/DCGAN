@@ -71,7 +71,7 @@ class Train(Train_base):
             if self.config.LOSS in ["WGAN", "WGAN_GP", "FMGAN"]:
                 optimizer = self._RMSProp_optimizer()
                 d_optim_ = self._train_op(optimizer, d_loss, theta_D)
-            elif self.config.LOSS in ["GAN", "LSGAN", "cGPGAN", "minibatchGAN"]:
+            elif self.config.LOSS in ["GAN", "LSGAN", "cGPGAN"]:
                 optimizer = self._Adam_optimizer()
 
 
@@ -216,7 +216,7 @@ class Train(Train_base):
 
     def _loss(self, D, D_logits, D_, D_logits_, real = None, fake = None, real_fm = None, fake_fm = None,
               discriminator = None, label = None):
-        if self.config.LOSS == "GAN" or self.config.LOSS == "minibatchGAN":
+        if self.config.LOSS == "GAN":
             d_loss, g_loss = self._loss_GAN(D, D_logits, D_, D_logits_)
         elif self.config.LOSS == "WGAN":
             d_loss, g_loss = self._loss_WGAN(D, D_logits, D_, D_logits_)
@@ -460,6 +460,7 @@ def _customize_config(tmp_config, FLAGS):
     tmp_config.SAMPLE_DIR = os.path.join(os.path.dirname(tmp_config.SAMPLE_DIR), FLAGS.sample_dir)
     tmp_config.Y_LABLE = FLAGS.C_GAN
     tmp_config.LABEL_SMOOTH = FLAGS.label_smooth
+    tmp_config.MINIBATCH_DIS = FLAGS.miniBatchDis
 
 if __name__ == "__main__":
     # _main_train_prostate()
