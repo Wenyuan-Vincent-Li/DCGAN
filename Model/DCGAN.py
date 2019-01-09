@@ -13,14 +13,65 @@ class DCGAN(model_base.GAN_Base):
                                     config.BATCH_NORM_DECAY, config.BATCH_NORM_EPSILON)
         self.config = config
 
-    def generator(self, z, y = None):
+    def mrGAN_encoder(self, image, reuse = False):
+        with tf.variable_scope("encoder") as scope:
+            if reuse:
+                scope.reuse_variables()
+
+            if self.config.CHANNEL == 3:
+                h0 = self._conv2d(image, 64, name = 'e_h0_conv')
+                h0 = tf.nn.leaky_relu(h0)
+
+                h1 = self._conv2d(h0, 64 * 2, name = 'e_h1_conv')
+                h1 = self._batch_norm_contrib(h1, name = 'd_h1_bn', train = True)
+                h1 = tf.nn.leaky_relu(h1)
+
+                h2 = self._conv2d(h1, 64 * 4, name = 'e_h2_conv')
+                h2 = self._batch_norm_contrib(h2, name = 'd_h2_bn', train = True)
+                h2 = tf.nn.leaky_relu(h2)
+
+                h3 = self._conv2d(h2, 64 * 8, name = 'e_h3_conv')
+                h3 = self._batch_norm_contrib(h3, name = 'e_h3_bn', train = True)
+                h3 = tf.nn.leaky_relu(h3)
+
+                h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
+
+                h4 = self._linear_fc(h4, 100, 'd_h4_lin')
+                return tf.nn.tanh(h4), h4
+
+            else:
+                # first conv
+                h0 = self._conv2d(image, 1 + self.config.NUM_CLASSES, name = 'e_h0_conv')
+                h0 = tf.nn.leaky_relu(h0, alpha = 0.2, name = 'e_leaky0')
+
+                # second conv
+                h1 = self._conv2d(h0, 64 + self.config.NUM_CLASSES, name = 'e_h1_conv')
+                h1 = self._batch_norm_contrib(h1, name = 'e_h1_bn', train = True)
+                h1 = tf.nn.leaky_relu(h1, alpha = 0.2, name = 'e_leaky1')
+
+                # reshape and concat the label
+                h1 = tf.reshape(h1, [self.config.BATCH_SIZE, -1])
+
+                ## fc layer
+                h2 = self._linear_fc(h1, 1024, 'e_h2_lin')
+                h2 = self._batch_norm_contrib(h2, name = 'e_h2_bn', train = True)
+                h2= tf.nn.leaky_relu(h2, alpha = 0.2, name = 'e_leaky2')
+
+                h3 = self._linear_fc(h2, 100, 'e_h3_lin')
+
+                return tf.nn.tanh(h3), h3
+
+
+    def generator(self, z, y = None, reuse = False):
         """
         Generator in GAN
         :param z: [batch_size, latent_dims]
         :param y: [batch_size, NUM_CLASSES]
         :return:
         """
-        with tf.variable_scope("generator"):
+        with tf.variable_scope("generator") as scope:
+            if reuse:
+                scope.reuse_variables()
             if not self.config.Y_LABLE: ## there is no y, don't use conditional GAN
                 # project 'z' and reshape
                 z = self._linear_fc(z, 64 * 8 * 4 * 4, 'g_h0_lin')
@@ -112,40 +163,70 @@ class DCGAN(model_base.GAN_Base):
                 scope.reuse_variables()
 
             if not self.config.Y_LABLE:
-                h0 = self._conv2d(image, 64, name = 'd_h0_conv')
-                h0 = tf.nn.leaky_relu(h0)
+                if self.config.CHANNEL == "3":
+                    image = self._add_noise(image)
+                    h0 = self._conv2d(image, 64, name = 'd_h0_conv')
+                    h0 = tf.nn.leaky_relu(h0)
 
-                h1 = self._conv2d(h0, 64 * 2, name = 'd_h1_conv')
-                h1 = self._batch_norm_contrib(h1, name = 'd_h1_bn', train = True)
-                h1 = tf.nn.leaky_relu(h1)
+                    h1 = self._conv2d(h0, 64 * 2, name = 'd_h1_conv')
+                    h1 = self._batch_norm_contrib(h1, name = 'd_h1_bn', train = True)
+                    h1 = tf.nn.leaky_relu(h1)
 
-                h2 = self._conv2d(h1, 64 * 4, name = 'd_h2_conv')
-                h2 = self._batch_norm_contrib(h2, name = 'd_h2_bn', train = True)
-                h2 = tf.nn.leaky_relu(h2)
+                    h2 = self._conv2d(h1, 64 * 4, name = 'd_h2_conv')
+                    h2 = self._batch_norm_contrib(h2, name = 'd_h2_bn', train = True)
+                    h2 = tf.nn.leaky_relu(h2)
 
-                h3 = self._conv2d(h2, 64 * 8, name = 'd_h3_conv')
-                h3 = self._batch_norm_contrib(h3, name = 'd_h3_bn', train = True)
-                h3 = tf.nn.leaky_relu(h3)
-                fm = h3
+                    h3 = self._conv2d(h2, 64 * 8, name = 'd_h3_conv')
+                    h3 = self._batch_norm_contrib(h3, name = 'd_h3_bn', train = True)
+                    h3 = tf.nn.leaky_relu(h3)
+                    fm = h3
 
-                h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
+                    h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
 
-                if self.config.MINIBATCH_DIS:
-                    f = self._minibatch_discrimination(h4, 100)
-                    h4 = tf.concat([h4, f], 1)
+                    if self.config.MINIBATCH_DIS:
+                        f = self._minibatch_discrimination(h4, 100)
+                        h4 = tf.concat([h4, f], 1)
 
-                h4 = self._linear_fc(h4, 1, 'd_h4_lin')
-                return tf.nn.sigmoid(h4), h4, fm
+                    h4 = self._linear_fc(h4, 1, 'd_h4_lin')
+                    return tf.nn.sigmoid(h4), h4, fm
+                else:
+                    image = self._add_noise(image)
+
+                    # first conv
+                    h0 = self._conv2d(image, 1 + self.config.NUM_CLASSES, name='d_h0_conv')
+                    h0 = tf.nn.leaky_relu(h0, alpha=0.2, name='d_leaky0')
+
+                    # second conv
+                    h1 = self._conv2d(h0, 64 + self.config.NUM_CLASSES, name='d_h1_conv')
+                    h1 = self._batch_norm_contrib(h1, name='d_h1_bn', train=True)
+                    h1 = tf.nn.leaky_relu(h1, alpha=0.2, name='d_leaky1')
+
+                    fm = h1
+                    # reshape and concat the label
+                    h1 = tf.reshape(h1, [self.config.BATCH_SIZE, -1])
+
+                    ## fc layer
+                    h2 = self._linear_fc(h1, 1024, 'd_h2_lin')
+                    h2 = self._batch_norm_contrib(h2, name='d_h2_bn', train=True)
+                    h2 = tf.nn.leaky_relu(h2, alpha=0.2, name='d_leaky2')
+
+                    if self.config.MINIBATCH_DIS:
+                        f = self._minibatch_discrimination(h2, 100)
+                        h2 = tf.concat([h2, f], 1)
+
+                    h3 = self._linear_fc(h2, 1, 'd_h3_lin')
+                    return tf.nn.sigmoid(h3), h3, fm
 
             else:
                 if self.config.DATA_NAME == "mnist":
-                    # yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
-                    # image = self._conv_cond_concat(image, yb)
+                    image = self._add_noise(image)
+                    yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
+                    image = self._conv_cond_concat(image, yb)
 
                     # first conv
                     h0 = self._conv2d(image, 1 + self.config.NUM_CLASSES, name = 'd_h0_conv')
                     h0 = tf.nn.leaky_relu(h0, alpha = 0.2, name = 'd_leaky0')
-                    # h0 = self._conv_cond_concat(h0, yb)
+                    h0 = self._conv_cond_concat(h0, yb)
 
                     # second conv
                     h1 = self._conv2d(h0, 64 + self.config.NUM_CLASSES, name = 'd_h1_conv')
@@ -155,21 +236,22 @@ class DCGAN(model_base.GAN_Base):
                     fm = h1
                     # reshape and concat the label
                     h1 = tf.reshape(h1, [self.config.BATCH_SIZE, -1])
-                    # h1 = tf.concat([h1, y], 1)
+                    h1 = tf.concat([h1, y], 1)
 
                     ## fc layer
                     h2 = self._linear_fc(h1, 1024, 'd_h2_lin')
                     h2 = self._batch_norm_contrib(h2, name = 'd_h2_bn', train = True)
                     h2= tf.nn.leaky_relu(h2, alpha = 0.2, name = 'd_leaky2')
-                    # h2 = tf.concat([h2, y], 1)
+                    h2 = tf.concat([h2, y], 1)
                     if self.config.MINIBATCH_DIS:
                         f = self._minibatch_discrimination(h2, 100)
                         h2 = tf.concat([h2, f], 1)
-
                     h3 = self._linear_fc(h2, 1, 'd_h3_lin')
-
                     return tf.nn.sigmoid(h3), h3, fm
+
                 elif self.config.DATA_NAME == "prostate":
+                    image = self._add_noise(image)
+
                     yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])
                     image = self._conv_cond_concat(image, yb)
 
@@ -211,10 +293,18 @@ class DCGAN(model_base.GAN_Base):
         :param label: input label (e.g. mnist)
         :return:
         """
-        G = self.generator(z, label)
-        D, D_logits, fm = self.discriminator(image, label, reuse = False)
-        D_, D_logits_, fm_ = self.discriminator(G, label, reuse = True)
-        return G, D, D_logits, D_, D_logits_, fm, fm_
+        if self.config.LOSS == "MRGAN":
+            G = self.generator(z, label)
+            G_mr = self.generator(self.mrGAN_encoder(image), label, reuse = True)
+            D, D_logits, fm = self.discriminator(image, label, reuse = False)
+            D_, D_logits_, fm_ = self.discriminator(image, label, reuse = True)
+            D_mr, D_mr_logits, fm_mr = self.discriminator(image, label, reuse = True)
+            return G, G_mr, D, D_logits, D_, D_logits_, fm, fm_, D_mr, D_mr_logits, fm_mr
+        else:
+            G = self.generator(z, label)
+            D, D_logits, fm = self.discriminator(image, label, reuse = False)
+            D_, D_logits_, fm_ = self.discriminator(G, label, reuse = True)
+            return G, D, D_logits, D_, D_logits_, fm, fm_
 
     def sampler(self, z, y = None):
         with tf.variable_scope("generator") as scope:

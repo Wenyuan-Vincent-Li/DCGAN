@@ -54,10 +54,17 @@ class Train(Train_base):
 
             z = tf.placeholder(tf.float32, [self.config.BATCH_SIZE, self.config.Z_DIM]) # latent variable
 
-            # Build up the graph
-            G, D, D_logits, D_, D_logits_, fm, fm_, z, model = self._build_train_graph(x, y, z, Model)
-            # Create the loss:
-            d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_, x, G, fm, fm_, model.discriminator, y)
+            if self.config.LOSS == "MRGAN":
+                # Build up the graph for mrGAN
+                G, G_mr, D, D_logits, D_, D_logits_, fm, fm_, D_mr, D_mr_logits, _, model = self._build_train_graph(x, y, z, Model)
+                # Create the loss:
+                d_loss, g_loss, e_loss = self._loss(D, D_logits, D_, D_logits_, x, G, fm, fm_, model.discriminator, y, \
+                                                    G_mr, D_mr_logits)
+            else:
+                # Build up the graph
+                G, D, D_logits, D_, D_logits_, fm, fm_, model = self._build_train_graph(x, y, z, Model)
+                # Create the loss:
+                d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_, x, G, fm, fm_, model.discriminator, y)
 
             # Sample the generated image every epoch
             samples = model.sampler(z, y)
@@ -67,11 +74,13 @@ class Train(Train_base):
             t_vars = tf.trainable_variables()
             theta_G = [var for var in t_vars if 'g_' in var.name]
             theta_D = [var for var in t_vars if 'd_' in var.name]
+            if self.config.LOSS == "MRGAN":
+                theta_E = [var for var in t_vars if 'e_' in var.name]
 
             if self.config.LOSS in ["WGAN", "WGAN_GP", "FMGAN"]:
                 optimizer = self._RMSProp_optimizer()
                 d_optim_ = self._train_op(optimizer, d_loss, theta_D)
-            elif self.config.LOSS in ["GAN", "LSGAN", "cGPGAN"]:
+            elif self.config.LOSS in ["GAN", "LSGAN", "cGPGAN", "MRGAN"]:
                 optimizer = self._Adam_optimizer()
 
 
@@ -82,6 +91,8 @@ class Train(Train_base):
                                                                     self.config.WEIGHT_CLIP)) for var in theta_D))
             else:
                 d_optim = self._train_op(optimizer, d_loss, theta_D)
+                if self.config.LOSS == "MRGAN":
+                    e_optim = self._train_op(optimizer, e_loss, theta_E)
 
             g_optim = self._train_op(optimizer, g_loss, theta_G)
 
@@ -93,6 +104,8 @@ class Train(Train_base):
             if self.config.SUMMARY_SCALAR:
                 scaler = {'generator_loss': g_loss,
                           'discriminator_loss': d_loss}
+                if self.config.LOSS == "MRGAN":
+                    scaler['encoder_loss'] = e_loss
                 summary_dict['scalar'] = scaler
 
             merged_summary = self.summary.add_summary(summary_dict)
@@ -158,7 +171,11 @@ class Train(Train_base):
                         _, g_loss_o = sess.run([g_optim, g_loss],
                                                feed_dict={x: image_batch_o,
                                                           z: batch_z})
-
+                        if self.config.LOSS == "MRGAN":
+                            # Update encoder
+                            _, e_loss_o = sess.run([e_optim, e_loss],
+                                                   feed_dict = {x: image_batch_o,
+                                                                z: batch_z})
                     else:
                         # Update discriminator
                         _, d_loss_o = sess.run([d_optim, d_loss],
@@ -175,6 +192,12 @@ class Train(Train_base):
                                      feed_dict = {x: image_batch_o,
                                                   y: label_batch_o,
                                                   z: batch_z})
+                        if self.config.LOSS == "MRGAN":
+                            # Update encoder
+                            _, e_loss_o = sess.run([e_optim, e_loss],
+                                                   feed_dict = {x: image_batch_o,
+                                                                y: label_batch_o,
+                                                                z: batch_z})
 
 
                     # Update progress bar
@@ -185,8 +208,12 @@ class Train(Train_base):
                     save_name = str(epoch)
                     saver.save(sess, 'model_' + save_name.zfill(4) + '.ckpt')
 
-                print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f" \
-                      % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o))
+                if self.config.Loss == "MRGAN":
+                    print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f, e_loss: %.8f" \
+                          % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o, e_loss_o))
+                else:
+                    print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f" \
+                          % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o))
                 ## Sample image after every epoch
                 if not self.config.Y_LABLE:
                     samples_o, d_loss_o, g_loss_o, summary_o = sess.run([samples, d_loss, g_loss, merged_summary],
@@ -216,8 +243,11 @@ class Train(Train_base):
 
 
     def _loss(self, D, D_logits, D_, D_logits_, real = None, fake = None, real_fm = None, fake_fm = None,
-              discriminator = None, label = None):
-        if self.config.LOSS == "GAN":
+              discriminator = None, label = None, G_mr = None, D_mr_logits = None):
+        if self.config.LOSS == "MRGAN":
+            d_loss, g_loss, e_loss = self._loss_MRGAN(D, D_logits, D_, D_logits_, G, G_mr, D_mr_logits)
+            return d_loss, g_loss, e_loss
+        elif self.config.LOSS == "GAN":
             d_loss, g_loss = self._loss_GAN(D, D_logits, D_, D_logits_)
         elif self.config.LOSS == "WGAN":
             d_loss, g_loss = self._loss_WGAN(D, D_logits, D_, D_logits_)
@@ -246,8 +276,13 @@ class Train(Train_base):
         """
         ## Create the model
         main_graph = Model(self.config)
-        G, D, D_logits, D_, D_logits_, fm, fm_ = main_graph.forward_pass(z, x, y)
-        return G, D, D_logits, D_, D_logits_, fm, fm_, z, main_graph
+        if self.config.LOSS == "MRGAN":
+            G, G_mr, D, D_logits, D_, D_logits_, fm, fm_, D_mr, D_mr_logits, fm_mr = main_graph.forward_pass(z, x, y)
+            return G, G_mr, D, D_logits, D_, D_logits_, fm, fm_, D_mr, D_mr_logits, fm_mr, main_graph
+        else:
+            G, D, D_logits, D_, D_logits_, fm, fm_ = main_graph.forward_pass(z, x, y)
+            return G, D, D_logits, D_, D_logits_, fm, fm_, main_graph
+
 
 
     def _input_fn_w_label(self, DataSet):
@@ -356,7 +391,7 @@ def _main_train_mnist(FLAGS = None):
         EPOCHS = 8
         NUM_CLASSES = 10
 
-        Y_LABLE = True
+        Y_LABLE = False
 
         ## Input image
         IMAGE_HEIGHT = 28
@@ -374,7 +409,6 @@ def _main_train_mnist(FLAGS = None):
     tmp_config = tempConfig()
     if FLAGS:
         _customize_config(tmp_config, FLAGS)
-        tmp_config.Y_LABLE = True # mnist use the conditional GAN by default
     tmp_config.display()
 
     # Folder to save the trained weights

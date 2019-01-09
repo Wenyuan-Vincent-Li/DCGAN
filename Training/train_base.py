@@ -86,6 +86,27 @@ class Train_base(object):
             g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
         return d_loss, g_loss
 
+    def _loss_MRGAN(self, D, D_logitis, D_, D_logits_, G, G_mr, D_logits_mr):
+        with tf.name_scope('Loss'):
+            # Discriminator loss
+            if self.config.LABEL_SMOOTH:
+                d_loss_real = self._sigmoid_cross_entopy_w_logits(0.9 * tf.ones_like(D), D_logits)
+            else:
+                d_loss_real = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
+            d_loss_fake = self._sigmoid_cross_entopy_w_logits(tf.zeros_like(D_), D_logits_)
+            d_loss = d_loss_fake + d_loss_real
+
+            # Encoder loss:
+            e_mse_loss = tf.reduce_mean(self._huber_loss(G, G_mr), axis = None)
+            e_adv_loss = tf.reduce_mean(self._safe_log(D_logits_mr))
+            e_loss = 0.2 * e_mse_loss + 0.4 * e_adv_loss
+
+            # Generator loss:
+            g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_) + e_loss
+
+        return d_loss, g_loss, e_loss
+
+
 
     def _loss_FMGAN(self, D, D_logits, D_, D_logits_, real, fake, real_fm, fake_fm, discriminator, label = None):
         with tf.name_scope('Loss'):
@@ -95,7 +116,7 @@ class Train_base(object):
             d_loss = -wd + gp * 10.0
             # Generator loss
             fm_loss = tf.reduce_mean(self._huber_loss(real_fm, fake_fm))
-            g_loss = 0 * -tf.reduce_mean(D_logits_) + fm_loss
+            g_loss = -tf.reduce_mean(D_logits_) + fm_loss
 
         return d_loss, g_loss
 
@@ -184,3 +205,6 @@ class Train_base(object):
         small_res = 0.5 * tf.square(residual)
         large_res = delta * residual - 0.5 * tf.square(delta)
         return tf.where(condition, small_res, large_res)
+
+    def _safe_log(self, x, epsilon = 1e-12, name = "safe_log"):
+        return tf.log(x + epsilon, name = name)

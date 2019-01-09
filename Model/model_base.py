@@ -128,3 +128,14 @@ class GAN_Base(object):
             f1 = tf.reduce_sum(tf.exp(-abs_diff), reduction_indices=[2])
             f1 = f1 + b
         return f1
+
+    def _add_noise(self, inputs, mean=0.0, stddev=0.2):
+        with tf.name_scope('Add_Noise'):
+            noise = tf.random_normal(shape=tf.shape(inputs),
+                                     mean=mean,
+                                     stddev=stddev,
+                                     dtype=inputs.dtype,
+                                     name='noise'
+                                     )
+            inputs = inputs + noise
+        return inputs
