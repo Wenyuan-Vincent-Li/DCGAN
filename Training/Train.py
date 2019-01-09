@@ -208,7 +208,7 @@ class Train(Train_base):
                     save_name = str(epoch)
                     saver.save(sess, 'model_' + save_name.zfill(4) + '.ckpt')
 
-                if self.config.Loss == "MRGAN":
+                if self.config.LOSS == "MRGAN":
                     print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f, e_loss: %.8f" \
                           % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o, e_loss_o))
                 else:
