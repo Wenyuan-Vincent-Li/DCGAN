@@ -20,6 +20,7 @@ flags.DEFINE_boolean("C_GAN", False, "True for using conditional GAN")
 flags.DEFINE_string("GPU", "0", "Which GPU used to process the data")
 flags.DEFINE_boolean("label_smooth", False, "True for using one-side label smoothing, only used for [GAN, cGPGAN, LSGAN]")
 flags.DEFINE_boolean("miniBatchDis", False, "True for using miniBatchDis")
+flags.DEFINE_boolean("debug", False, "True for using the debug tool")
 FLAGS = flags.FLAGS
 
 

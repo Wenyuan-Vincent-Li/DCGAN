@@ -108,6 +108,9 @@ class Config(object):
     # SAVE RESULTS:
     SAMPLE_DIR = None
 
+    # Debug Mode:
+    DEBUG = False
+
     def __init__(self):
         """Set values of computed attributes."""
         self.MIN_QUEUE_EXAMPLES = int(15 * 0.4)

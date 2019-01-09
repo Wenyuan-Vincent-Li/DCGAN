@@ -12,6 +12,7 @@ sys.path.append(root_dir)
 import tensorflow as tf
 from datetime import datetime
 from pytz import timezone
+from tensorflow.python import debug as tf_debug
 
 from Training.train_base import Train_base
 from Training.Saver import Saver
@@ -117,6 +118,8 @@ class Train(Train_base):
         sess_config = tf.ConfigProto(allow_soft_placement = True)
         # Use soft_placement to place those variables, which can be placed, on GPU
         with tf.Session(config = sess_config) as sess:
+            if self.config.DEBUG:
+                sess = tf_debug.LocalCLIDebugWrapperSession(sess)
             if self.config.SUMMARY and self.config.SUMMARY_GRAPH:
                 self.summary._graph_summary(sess.graph)
 
@@ -496,6 +499,7 @@ def _customize_config(tmp_config, FLAGS):
     tmp_config.Y_LABLE = FLAGS.C_GAN
     tmp_config.LABEL_SMOOTH = FLAGS.label_smooth
     tmp_config.MINIBATCH_DIS = FLAGS.miniBatchDis
+    tmp_config.DEBUG = FLAGS.debug
 
 if __name__ == "__main__":
     # _main_train_prostate()

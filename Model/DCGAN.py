@@ -37,7 +37,7 @@ class DCGAN(model_base.GAN_Base):
                 h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
 
                 h4 = self._linear_fc(h4, 100, 'e_h4_lin')
-                return tf.nn.tanh(h4)
+                return h4
 
             else:
                 # first conv
@@ -59,7 +59,7 @@ class DCGAN(model_base.GAN_Base):
 
                 h3 = self._linear_fc(h2, 100, 'e_h3_lin')
 
-                return tf.nn.tanh(h3)
+                return h3
 
 
     def generator(self, z, y = None, reuse = False):
@@ -73,39 +73,64 @@ class DCGAN(model_base.GAN_Base):
             if reuse:
                 scope.reuse_variables()
             if not self.config.Y_LABLE: ## there is no y, don't use conditional GAN
-                # project 'z' and reshape
-                z = self._linear_fc(z, 64 * 8 * 4 * 4, 'g_h0_lin')
-                h0 = tf.reshape(z, [-1, 4, 4, 64 * 8])
-                h0 = self._batch_norm_contrib(h0, 'g_bn0', train = True)
-                h0 = tf.nn.relu(h0, 'g_rl0') ## [4, 4]
+                if self.config.CHANNEL == 1:
+                    ## first linear layer
+                    h0 = self._linear_fc(z, 1024, 'g_h0_lin')
+                    h0 = self._batch_norm_contrib(h0, 'g_bn0', train=True)
+                    h0 = tf.nn.relu(h0, 'g_rl0')
 
-                h1 = self._deconv2d(h0, 64 * 4, name = 'g_dconv0')
-                h1 = self._batch_norm_contrib(h1, 'g_bn1', train = True)
-                h1 = tf.nn.relu(h1, 'g_rl1') ## [8, 8]
+                    ## second linear layer
+                    h1 = self._linear_fc(h0, self.config.BATCH_SIZE * 2 * 7 * 7, 'g_h1_lin')
+                    h1 = self._batch_norm_contrib(h1, 'g_bn1', train=True)
+                    h1 = tf.nn.relu(h1, 'g_rl1')
 
-                h2 = self._deconv2d(h1, 64 * 2, name = 'g_dconv1')
-                h2 = self._batch_norm_contrib(h2, 'g_bn2', train = True)
-                h2 = tf.nn.relu(h2, 'g_rl2') ## [16, 16]
+                    ## reshape to conv feature pack and concat with label condition
+                    h1 = tf.reshape(h1, [self.config.BATCH_SIZE, 7, 7, 64 * 2])
 
-                h3 = self._deconv2d(h2, 64 * 1, name = 'g_dconv2')
-                h3 = self._batch_norm_contrib(h3, 'g_bn3', train = True)
-                h3 = tf.nn.relu(h3, 'g_rl3') ## [32, 32]
+                    ## first layer deconv
+                    h2 = self._deconv2d(h1, 128, name='g_dconv0')
+                    h2 = self._batch_norm_contrib(h2, 'g_bn2', train=True)
+                    h2 = tf.nn.relu(h2, 'g_rl2')
 
-                h4 = self._deconv2d(h3, self.config.CHANNEL, name = 'g_dconv3')
-                h4 = tf.nn.tanh(h4)
-                ## [64, 64]
-                return h4
+                    ## output layer: sigmoid to map the data range to [0, 1]
+                    h3 = self._deconv2d(h2, 1, name='g_dconv1')
+                    h3 = tf.nn.sigmoid(h3, name='sigmoid')
+                    return h3
+
+                else:
+                    # project 'z' and reshape
+                    z = self._linear_fc(z, 64 * 8 * 4 * 4, 'g_h0_lin')
+                    h0 = tf.reshape(z, [-1, 4, 4, 64 * 8])
+                    h0 = self._batch_norm_contrib(h0, 'g_bn0', train = True)
+                    h0 = tf.nn.relu(h0, 'g_rl0') ## [4, 4]
+
+                    h1 = self._deconv2d(h0, 64 * 4, name = 'g_dconv0')
+                    h1 = self._batch_norm_contrib(h1, 'g_bn1', train = True)
+                    h1 = tf.nn.relu(h1, 'g_rl1') ## [8, 8]
+
+                    h2 = self._deconv2d(h1, 64 * 2, name = 'g_dconv1')
+                    h2 = self._batch_norm_contrib(h2, 'g_bn2', train = True)
+                    h2 = tf.nn.relu(h2, 'g_rl2') ## [16, 16]
+
+                    h3 = self._deconv2d(h2, 64 * 1, name = 'g_dconv2')
+                    h3 = self._batch_norm_contrib(h3, 'g_bn3', train = True)
+                    h3 = tf.nn.relu(h3, 'g_rl3') ## [32, 32]
+
+                    h4 = self._deconv2d(h3, self.config.CHANNEL, name = 'g_dconv3')
+                    h4 = tf.nn.tanh(h4)
+                    ## [64, 64]
+                    return h4
 
             else: ## use conditional GAN
                 if self.config.DATA_NAME == "mnist":
-                    # yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES]) ## [None, 1, 1, 10]
-                    # z = tf.concat([z, y], 1) # concat the z and y in the latent space
+                    yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES]) ## [None, 1, 1, 10]
+                    z = tf.concat([z, y], 1) # concat the z and y in the latent space
 
                     ## first linear layer
                     h0 = self._linear_fc(z, 1024, 'g_h0_lin')
                     h0 = self._batch_norm_contrib(h0, 'g_bn0', train = True)
                     h0 = tf.nn.relu(h0, 'g_rl0')
-                    # h0 = tf.concat([h0, y], 1)
+                    h0 = tf.concat([h0, y], 1)
 
                     ## second linear layer
                     h1 = self._linear_fc(h0, self.config.BATCH_SIZE * 2 * 7 * 7, 'g_h1_lin')
@@ -114,13 +139,13 @@ class DCGAN(model_base.GAN_Base):
 
                     ## reshape to conv feature pack and concat with label condition
                     h1 = tf.reshape(h1, [self.config.BATCH_SIZE, 7, 7, 64 * 2])
-                    # h1 = self._conv_cond_concat(h1, yb)
+                    h1 = self._conv_cond_concat(h1, yb)
 
                     ## first layer deconv
                     h2 = self._deconv2d(h1, 128, name = 'g_dconv0')
                     h2 = self._batch_norm_contrib(h2, 'g_bn2', train = True)
                     h2 = tf.nn.relu(h2, 'g_rl2')
-                    # h2 = self._conv_cond_concat(h2, yb)
+                    h2 = self._conv_cond_concat(h2, yb)
 
                     ## output layer: sigmoid to map the data range to [0, 1]
                     h3 = self._deconv2d(h2, 1, name = 'g_dconv1')
@@ -294,10 +319,10 @@ class DCGAN(model_base.GAN_Base):
         """
         if self.config.LOSS == "MRGAN":
             G = self.generator(z, label)
-            G_mr = self.generator(self.mrGAN_encoder(image), label, reuse = True)
+            G_mr = self.generator(self.mrGAN_encoder(G), label, reuse = True)
             D, D_logits, fm = self.discriminator(image, label, reuse = False)
-            D_, D_logits_, fm_ = self.discriminator(image, label, reuse = True)
-            D_mr, D_mr_logits, fm_mr = self.discriminator(image, label, reuse = True)
+            D_, D_logits_, fm_ = self.discriminator(G, label, reuse = True)
+            D_mr, D_mr_logits, fm_mr = self.discriminator(G_mr, label, reuse = True)
             return G, G_mr, D, D_logits, D_, D_logits_, fm, fm_, D_mr, D_mr_logits, fm_mr
         else:
             G = self.generator(z, label)
@@ -309,28 +334,53 @@ class DCGAN(model_base.GAN_Base):
         with tf.variable_scope("generator") as scope:
             scope.reuse_variables()
             if not self.config.Y_LABLE:
-                # project 'z' and reshape
-                z = self._linear_fc(z, 64 * 8 * 4 * 4, 'g_h0_lin')
-                h0 = tf.reshape(z, [-1, 4, 4, 64 * 8])
-                h0 = self._batch_norm_contrib(h0, 'g_bn0', train = False)
-                h0 = tf.nn.relu(h0, 'g_rl0')  ## [4, 4]
+                if self.config.CHANNEL == 3:
+                    # project 'z' and reshape
+                    z = self._linear_fc(z, 64 * 8 * 4 * 4, 'g_h0_lin')
+                    h0 = tf.reshape(z, [-1, 4, 4, 64 * 8])
+                    h0 = self._batch_norm_contrib(h0, 'g_bn0', train = False)
+                    h0 = tf.nn.relu(h0, 'g_rl0')  ## [4, 4]
 
-                h1 = self._deconv2d(h0, 64 * 4, name='g_dconv0')
-                h1 = self._batch_norm_contrib(h1, 'g_bn1', train = False)
-                h1 = tf.nn.relu(h1, 'g_rl1')  ## [8, 8]
+                    h1 = self._deconv2d(h0, 64 * 4, name='g_dconv0')
+                    h1 = self._batch_norm_contrib(h1, 'g_bn1', train = False)
+                    h1 = tf.nn.relu(h1, 'g_rl1')  ## [8, 8]
 
-                h2 = self._deconv2d(h1, 64 * 2, name='g_dconv1')
-                h2 = self._batch_norm_contrib(h2, 'g_bn2', train = False)
-                h2 = tf.nn.relu(h2, 'g_rl2')  ## [16, 16]
+                    h2 = self._deconv2d(h1, 64 * 2, name='g_dconv1')
+                    h2 = self._batch_norm_contrib(h2, 'g_bn2', train = False)
+                    h2 = tf.nn.relu(h2, 'g_rl2')  ## [16, 16]
 
-                h3 = self._deconv2d(h2, 64 * 1, name='g_dconv2')
-                h3 = self._batch_norm_contrib(h3, 'g_bn3', train = False)
-                h3 = tf.nn.relu(h3, 'g_rl3')  ## [32, 32]
+                    h3 = self._deconv2d(h2, 64 * 1, name='g_dconv2')
+                    h3 = self._batch_norm_contrib(h3, 'g_bn3', train = False)
+                    h3 = tf.nn.relu(h3, 'g_rl3')  ## [32, 32]
 
-                h4 = self._deconv2d(h3, self.config.CHANNEL, name='g_dconv3')
-                h4 = tf.nn.tanh(h4)
-                ## [64, 64]
-                return h4
+                    h4 = self._deconv2d(h3, self.config.CHANNEL, name='g_dconv3')
+                    h4 = tf.nn.tanh(h4)
+                    ## [64, 64]
+                    return h4
+                else:
+                    ## first linear layer
+                    h0 = self._linear_fc(z, 1024, 'g_h0_lin')
+                    h0 = self._batch_norm_contrib(h0, 'g_bn0', train=True)
+                    h0 = tf.nn.relu(h0, 'g_rl0')
+
+                    ## second linear layer
+                    h1 = self._linear_fc(h0, self.config.BATCH_SIZE * 2 * 7 * 7, 'g_h1_lin')
+                    h1 = self._batch_norm_contrib(h1, 'g_bn1', train=True)
+                    h1 = tf.nn.relu(h1, 'g_rl1')
+
+                    ## reshape to conv feature pack and concat with label condition
+                    h1 = tf.reshape(h1, [self.config.BATCH_SIZE, 7, 7, 64 * 2])
+
+                    ## first layer deconv
+                    h2 = self._deconv2d(h1, 128, name='g_dconv0')
+                    h2 = self._batch_norm_contrib(h2, 'g_bn2', train=True)
+                    h2 = tf.nn.relu(h2, 'g_rl2')
+
+                    ## output layer: sigmoid to map the data range to [0, 1]
+                    h3 = self._deconv2d(h2, 1, name='g_dconv1')
+                    h3 = tf.nn.sigmoid(h3, name='sigmoid')
+                    return h3
+
             else:
                 if self.config.DATA_NAME == "mnist":
                     # yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])  ## [None, 1, 1, 10]

@@ -98,12 +98,12 @@ class Train_base(object):
 
             # Encoder loss:
             e_mse_loss = tf.reduce_mean(self._huber_loss(G, G_mr), axis = None)
-            e_adv_loss = tf.reduce_mean(self._safe_log(D_logits_mr))
+            e_adv_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_logits_mr), D_logits_mr)
             e_loss = 0.2 * e_mse_loss + 0.4 * e_adv_loss
 
             # Generator loss:
             g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_) + e_loss
-
+            # g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
         return d_loss, g_loss, e_loss
 
 
@@ -205,6 +205,3 @@ class Train_base(object):
         small_res = 0.5 * tf.square(residual)
         large_res = delta * residual - 0.5 * tf.square(delta)
         return tf.where(condition, small_res, large_res)
-
-    def _safe_log(self, x, epsilon = 1e-12, name = "safe_log"):
-        return tf.log(x + epsilon, name = name)
