@@ -86,7 +86,7 @@ class Train_base(object):
             g_loss = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D_), D_logits_)
         return d_loss, g_loss
 
-    def _loss_MRGAN(self, D, D_logitis, D_, D_logits_, G, G_mr, D_logits_mr):
+    def _loss_MRGAN(self, D, D_logits, D_, D_logits_, G, G_mr, D_logits_mr):
         with tf.name_scope('Loss'):
             # Discriminator loss
             if self.config.LABEL_SMOOTH:

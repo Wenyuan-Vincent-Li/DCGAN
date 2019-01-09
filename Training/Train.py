@@ -245,7 +245,7 @@ class Train(Train_base):
     def _loss(self, D, D_logits, D_, D_logits_, real = None, fake = None, real_fm = None, fake_fm = None,
               discriminator = None, label = None, G_mr = None, D_mr_logits = None):
         if self.config.LOSS == "MRGAN":
-            d_loss, g_loss, e_loss = self._loss_MRGAN(D, D_logits, D_, D_logits_, G, G_mr, D_mr_logits)
+            d_loss, g_loss, e_loss = self._loss_MRGAN(D, D_logits, D_, D_logits_, fake, G_mr, D_mr_logits)
             return d_loss, g_loss, e_loss
         elif self.config.LOSS == "GAN":
             d_loss, g_loss = self._loss_GAN(D, D_logits, D_, D_logits_)

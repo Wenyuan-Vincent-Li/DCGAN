@@ -36,8 +36,8 @@ class DCGAN(model_base.GAN_Base):
 
                 h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
 
-                h4 = self._linear_fc(h4, 100, 'd_h4_lin')
-                return tf.nn.tanh(h4), h4
+                h4 = self._linear_fc(h4, 100, 'e_h4_lin')
+                return tf.nn.tanh(h4)
 
             else:
                 # first conv
@@ -59,7 +59,7 @@ class DCGAN(model_base.GAN_Base):
 
                 h3 = self._linear_fc(h2, 100, 'e_h3_lin')
 
-                return tf.nn.tanh(h3), h3
+                return tf.nn.tanh(h3)
 
 
     def generator(self, z, y = None, reuse = False):
@@ -163,7 +163,7 @@ class DCGAN(model_base.GAN_Base):
                 scope.reuse_variables()
 
             if not self.config.Y_LABLE:
-                if self.config.CHANNEL == "3":
+                if self.config.CHANNEL == 3:
                     image = self._add_noise(image)
                     h0 = self._conv2d(image, 64, name = 'd_h0_conv')
                     h0 = tf.nn.leaky_relu(h0)
@@ -191,7 +191,6 @@ class DCGAN(model_base.GAN_Base):
                     return tf.nn.sigmoid(h4), h4, fm
                 else:
                     image = self._add_noise(image)
-
                     # first conv
                     h0 = self._conv2d(image, 1 + self.config.NUM_CLASSES, name='d_h0_conv')
                     h0 = tf.nn.leaky_relu(h0, alpha=0.2, name='d_leaky0')
