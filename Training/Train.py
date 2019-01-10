@@ -45,7 +45,11 @@ class Train(Train_base):
             if self.config.LOSS == "PacGAN":
                 # TODO: support conditional GAN for PacGAN
                 y = None # label batch
-                image_dims = self.config.IMAGE_DIM[: - 1] + [self.config.CHANNEL * self.config.PAC_NUM]
+                if self.config.CROP:
+                    image_dims = [self.config.IMAGE_HEIGHT_O, self.config.IMAGE_WIDTH_O,
+                                  self.config.CHANNEL * self.config.PAC_NUM]
+                else:
+                    image_dims = self.config.IMAGE_DIM[: - 1] + [self.config.CHANNEL * self.config.PAC_NUM]
                 x = tf.placeholder(tf.float32, [self.config.BATCH_SIZE] + image_dims,
                                        name ='real_images')
                 z = []
