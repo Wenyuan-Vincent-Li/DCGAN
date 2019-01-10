@@ -188,7 +188,7 @@ class Train(Train_base):
                             image_batch_sep.append(sess.run(image_batch))
                             image_batch_o = np.concatenate(image_batch_sep, axis = 3)
                     else:
-                        batch_z = np.random.random.normal(size = (self.config.BATCH_SIZE, self.config.Z_DIM)).astype(np.float32)
+                        batch_z = np.random.normal(size = (self.config.BATCH_SIZE, self.config.Z_DIM)).astype(np.float32)
                         # Fetch a data batch
                         if not self.config.Y_LABLE:
                             image_batch_o = sess.run(image_batch)
