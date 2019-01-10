@@ -60,7 +60,7 @@ class Config(object):
     NUM_CLASSES = None # Override in sub-classes
 
     # Whether to use the Y_LABEL as conditional GAN
-    Y_LABLE = None
+    Y_LABEL = None
 
     # Latent variable z dimension
     Z_DIM = 100
