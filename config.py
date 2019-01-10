@@ -65,6 +65,9 @@ class Config(object):
     # Latent variable z dimension
     Z_DIM = 100
 
+    # Packing number
+    PAC_NUM = 3 ## Packing number for PacGAN
+
     # Weight decay regularization
     WEIGHT_DECAY = 0.0001
 

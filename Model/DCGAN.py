@@ -325,7 +325,14 @@ class DCGAN(model_base.GAN_Base):
             D_mr, D_mr_logits, fm_mr = self.discriminator(G_mr, label, reuse = True)
             return G, G_mr, D, D_logits, D_, D_logits_, fm, fm_, D_mr, D_mr_logits, fm_mr
         else:
-            G = self.generator(z, label)
+            if self.config.LOSS == "PacGAN":
+                G_sep = []
+                for i in range(self.config.PAC_NUM):
+                    reuse = True if i > 0 else False
+                    G_sep.append(self.generator(z[i], label, reuse))
+                G = tf.concat(G_sep, 3)
+            else:
+                G = self.generator(z, label)
             D, D_logits, fm = self.discriminator(image, label, reuse = False)
             D_, D_logits_, fm_ = self.discriminator(G, label, reuse = True)
             return G, D, D_logits, D_, D_logits_, fm, fm_

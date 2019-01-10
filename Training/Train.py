@@ -42,18 +42,30 @@ class Train(Train_base):
 
         # Build up the graph and loss
         with tf.device('/gpu:0'):
-            # Create placeholder
-            if self.config.Y_LABLE:
-                y = tf.placeholder(tf.float32, [self.config.BATCH_SIZE, self.config.NUM_CLASSES], name='y') # label batch
-                x = tf.placeholder(tf.float32, [self.config.BATCH_SIZE] + self.config.IMAGE_DIM,
-                                   name='real_images')  # real image
+            if self.config.LOSS == "PacGAN":
+                # TODO: support conditional GAN for PacGAN
+                y = None # label batch
+                image_dims = self.config.IMAGE_DIM[: - 1] + [self.config.CHANNEL * self.config.PAC_NUM]
+                x = tf.placeholder(tf.float32, [self.config.BATCH_SIZE] + image_dims,
+                                       name ='real_images')
+                z = []
+                for i in range(self.config.PAC_NUM):
+                    z.append(tf.placeholder(tf.float32, [self.config.BATCH_SIZE, self.config.Z_DIM], \
+                                            name = 'z{}'.format(i))) # latent variable
+
             else:
-                y = None
-                x = tf.placeholder(tf.float32, [self.config.BATCH_SIZE] + [self.config.IMAGE_HEIGHT_O, self.config.IMAGE_WIDTH_O,
-                                                                           self.config.CHANNEL], name='real_images')  # real image
+                # Create placeholder
+                if self.config.Y_LABLE:
+                    y = tf.placeholder(tf.float32, [self.config.BATCH_SIZE, self.config.NUM_CLASSES], name='y') # label batch
+                    x = tf.placeholder(tf.float32, [self.config.BATCH_SIZE] + self.config.IMAGE_DIM,
+                                       name ='real_images')  # real image
+                else:
+                    y = None
+                    x = tf.placeholder(tf.float32, [self.config.BATCH_SIZE] + [self.config.IMAGE_HEIGHT_O, self.config.IMAGE_WIDTH_O,
+                                                                               self.config.CHANNEL], name='real_images')  # real image
 
 
-            z = tf.placeholder(tf.float32, [self.config.BATCH_SIZE, self.config.Z_DIM]) # latent variable
+                z = tf.placeholder(tf.float32, [self.config.BATCH_SIZE, self.config.Z_DIM]) # latent variable
 
             if self.config.LOSS == "MRGAN":
                 # Build up the graph for mrGAN
@@ -61,6 +73,7 @@ class Train(Train_base):
                 # Create the loss:
                 d_loss, g_loss, e_loss = self._loss(D, D_logits, D_, D_logits_, x, G, fm, fm_, model.discriminator, y, \
                                                     G_mr, D_mr_logits)
+
             else:
                 # Build up the graph
                 G, D, D_logits, D_, D_logits_, fm, fm_, model = self._build_train_graph(x, y, z, Model)
@@ -68,7 +81,10 @@ class Train(Train_base):
                 d_loss, g_loss = self._loss(D, D_logits, D_, D_logits_, x, G, fm, fm_, model.discriminator, y)
 
             # Sample the generated image every epoch
-            samples = model.sampler(z, y)
+            if self.config.LOSS == "PacGAN":
+                samples = model.sampler(z[0], y)
+            else:
+                samples = model.sampler(z, y)
 
         # Create optimizer
         with tf.name_scope('Train'):
@@ -81,7 +97,7 @@ class Train(Train_base):
             if self.config.LOSS in ["WGAN", "WGAN_GP", "FMGAN"]:
                 optimizer = self._RMSProp_optimizer()
                 d_optim_ = self._train_op(optimizer, d_loss, theta_D)
-            elif self.config.LOSS in ["GAN", "LSGAN", "cGPGAN", "MRGAN"]:
+            elif self.config.LOSS in ["GAN", "LSGAN", "cGPGAN", "MRGAN", "PacGAN"]:
                 optimizer = self._Adam_optimizer()
 
 
@@ -132,11 +148,21 @@ class Train(Train_base):
                 init_var = tf.group(tf.global_variables_initializer(), \
                                     tf.local_variables_initializer())
                 sess.run(init_var)
-            # sample_z = np.random.uniform(-1, 1, size=(64, 100))
+
             sample_z = np.random.normal(size = (self.config.BATCH_SIZE, 100))
             if not self.config.Y_LABLE:
+                ## TODO: support PacGAN for conditional case
                 sess.run(init_op)
-                sample_x = sess.run(image_batch)
+                if self.config.LOSS == "PacGAN":
+                    sample_feed_dict_z = {}
+                    sample_x_sep = []
+                    for i in range(self.config.PAC_NUM):
+                        sample_feed_dict_z[z[i]] = np.random.normal(
+                            size=(self.config.BATCH_SIZE, self.config.Z_DIM)).astype(np.float32)
+                        sample_x_sep.append(sess.run(image_batch))
+                        sample_x = np.concatenate(sample_x_sep, axis=3)
+                else:
+                    sample_x = sess.run(image_batch)
             else:
                 # sample_x, sample_y = sess.run([image_batch, label_batch])
                 sample_x, sample_y = SAMPLE_X, SAMPLE_Y
@@ -150,12 +176,20 @@ class Train(Train_base):
                                                                   int(self.config.TRAIN_SIZE / self.config.BATCH_SIZE))
                 sess.run(init_op)
                 for i in range(int(self.config.TRAIN_SIZE / self.config.BATCH_SIZE)):
-                    batch_z = np.random.uniform(-1, 1, [self.config.BATCH_SIZE, 100]).astype(np.float32)
-                    # Fetch a data batch
-                    if not self.config.Y_LABLE:
-                        image_batch_o = sess.run(image_batch)
+                    if self.config.LOSS == "PacGAN":
+                        image_batch_sep = []
+                        feed_dict_z = {}
+                        for i in range(self.config.PAC_NUM):
+                            feed_dict_z[z[i]] = np.random.normal(size = (self.config.BATCH_SIZE, self.config.Z_DIM)).astype(np.float32)
+                            image_batch_sep.append(sess.run(image_batch))
+                            image_batch_o = np.concatenate(image_batch_sep, axis = 3)
                     else:
-                        image_batch_o, label_batch_o = sess.run([image_batch, label_batch])
+                        batch_z = np.random.random.normal(size = (self.config.BATCH_SIZE, self.config.Z_DIM)).astype(np.float32)
+                        # Fetch a data batch
+                        if not self.config.Y_LABLE:
+                            image_batch_o = sess.run(image_batch)
+                        else:
+                            image_batch_o, label_batch_o = sess.run([image_batch, label_batch])
 
 
                         ## for numpy input
@@ -163,22 +197,40 @@ class Train(Train_base):
                         #                                label[i * self.config.BATCH_SIZE : (i + 1) * self.config.BATCH_SIZE]
 
                     if not self.config.Y_LABLE:
-                        # Update discriminator
-                        _, d_loss_o = sess.run([d_optim, d_loss],
-                                               feed_dict={x: image_batch_o,
-                                                          z: batch_z})
-                        # Update generator
-                        _ = sess.run([g_optim],
-                                     feed_dict={x: image_batch_o,
-                                                z: batch_z})
-                        _, g_loss_o = sess.run([g_optim, g_loss],
-                                               feed_dict={x: image_batch_o,
-                                                          z: batch_z})
-                        if self.config.LOSS == "MRGAN":
-                            # Update encoder
-                            _, e_loss_o = sess.run([e_optim, e_loss],
+                        if self.config.LOSS == "PacGAN":
+                            # Update discriminator
+                            _, d_loss_o = sess.run([d_optim, d_loss],
                                                    feed_dict = {x: image_batch_o,
-                                                                z: batch_z})
+                                                              **feed_dict_z})
+                            # Update generator
+                            _ = sess.run([g_optim],
+                                         feed_dict = {x: image_batch_o,
+                                                              **feed_dict_z})
+                            _, g_loss_o = sess.run([g_optim, g_loss],
+                                                   feed_dict = {x: image_batch_o,
+                                                              **feed_dict_z})
+                            if self.config.LOSS == "MRGAN":
+                                # Update encoder
+                                _, e_loss_o = sess.run([e_optim, e_loss],
+                                                       feed_dict = {x: image_batch_o,
+                                                              **feed_dict_z})
+                        else:
+                            # Update discriminator
+                            _, d_loss_o = sess.run([d_optim, d_loss],
+                                                   feed_dict={x: image_batch_o,
+                                                              z: batch_z})
+                            # Update generator
+                            _ = sess.run([g_optim],
+                                         feed_dict={x: image_batch_o,
+                                                    z: batch_z})
+                            _, g_loss_o = sess.run([g_optim, g_loss],
+                                                   feed_dict={x: image_batch_o,
+                                                              z: batch_z})
+                            if self.config.LOSS == "MRGAN":
+                                # Update encoder
+                                _, e_loss_o = sess.run([e_optim, e_loss],
+                                                       feed_dict = {x: image_batch_o,
+                                                                    z: batch_z})
                     else:
                         # Update discriminator
                         _, d_loss_o = sess.run([d_optim, d_loss],
@@ -237,9 +289,14 @@ class Train(Train_base):
                           % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o))
                 ## Sample image after every epoch
                 if not self.config.Y_LABLE:
-                    samples_o, d_loss_o, g_loss_o, summary_o = sess.run([samples, d_loss, g_loss, merged_summary],
-                                                                        feed_dict={x: sample_x,
-                                                                                   z: sample_z})
+                    if self.config.LOSS == "PacGAN":
+                        samples_o, d_loss_o, g_loss_o, summary_o = sess.run([samples, d_loss, g_loss, merged_summary],
+                                                                            feed_dict={x: image_batch_o,
+                                                                                        **sample_feed_dict_z})
+                    else:
+                        samples_o, d_loss_o, g_loss_o, summary_o = sess.run([samples, d_loss, g_loss, merged_summary],
+                                                                            feed_dict={x: sample_x,
+                                                                                       z: sample_z})
                 else:
                     samples_o, d_loss_o, g_loss_o, summary_o = sess.run([samples, d_loss, g_loss, merged_summary],
                                                        feed_dict = {x: sample_x,
@@ -268,7 +325,7 @@ class Train(Train_base):
         if self.config.LOSS == "MRGAN":
             d_loss, g_loss, e_loss = self._loss_MRGAN(D, D_logits, D_, D_logits_, fake, G_mr, D_mr_logits)
             return d_loss, g_loss, e_loss
-        elif self.config.LOSS == "GAN":
+        elif self.config.LOSS in ["GAN", "PacGAN"]:
             d_loss, g_loss = self._loss_GAN(D, D_logits, D_, D_logits_)
         elif self.config.LOSS == "WGAN":
             d_loss, g_loss = self._loss_WGAN(D, D_logits, D_, D_logits_)
@@ -317,6 +374,8 @@ class Train(Train_base):
                 dataset = DataSet(self.config.DATA_DIR, self.config, use_augmentation = True)
                 # Inputpipeline
                 image_batch, label_batch, init_op = dataset.inputpipline_singleset()
+                if self.config.LOSS == "PacGAN":
+                    pass
         return image_batch, label_batch, init_op, dataset
 
     def _input_fn(self, DataSet):
@@ -329,6 +388,8 @@ class Train(Train_base):
                     image_batch, init_op = dataset.inputpipline_singleset()
                 except:
                     image_batch, _, init_op = dataset.inputpipline_singleset()
+                if self.config.LOSS == "PacGAN":
+                    pass
         return image_batch, init_op, dataset
 
     def _input_fn_NP(self, DataSet):
