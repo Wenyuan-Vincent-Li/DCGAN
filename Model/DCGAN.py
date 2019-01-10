@@ -37,7 +37,7 @@ class DCGAN(model_base.GAN_Base):
                 h4 = tf.reshape(h3, [self.config.BATCH_SIZE, -1])
 
                 h4 = self._linear_fc(h4, 100, 'e_h4_lin')
-                return h4
+                return tf.tanh(h4)
 
             else:
                 # first conv
@@ -383,14 +383,14 @@ class DCGAN(model_base.GAN_Base):
 
             else:
                 if self.config.DATA_NAME == "mnist":
-                    # yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])  ## [None, 1, 1, 10]
-                    # z = tf.concat([z, y], 1)  # concat the z and y in the latent space
+                    yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])  ## [None, 1, 1, 10]
+                    z = tf.concat([z, y], 1)  # concat the z and y in the latent space
 
                     ## first linear layer
                     h0 = self._linear_fc(z, 1024, 'g_h0_lin')
                     h0 = self._batch_norm_contrib(h0, 'g_bn0', train = False)
                     h0 = tf.nn.relu(h0, 'g_rl0')
-                    # h0 = tf.concat([h0, y], 1)
+                    h0 = tf.concat([h0, y], 1)
 
                     ## second linear layer
                     h1 = self._linear_fc(h0, self.config.BATCH_SIZE * 2 * 7 * 7, 'g_h1_lin')
@@ -399,13 +399,13 @@ class DCGAN(model_base.GAN_Base):
 
                     ## reshape to conv feature pack and concat with label condition
                     h1 = tf.reshape(h1, [self.config.BATCH_SIZE, 7, 7, 64 * 2])
-                    # h1 = self._conv_cond_concat(h1, yb)
+                    h1 = self._conv_cond_concat(h1, yb)
 
                     ## first layer deconv
                     h2 = self._deconv2d(h1, 128, name='g_dconv0')
                     h2 = self._batch_norm_contrib(h2, 'g_bn2', train = False)
                     h2 = tf.nn.relu(h2, 'g_rl2')
-                    # h2 = self._conv_cond_concat(h2, yb)
+                    h2 = self._conv_cond_concat(h2, yb)
 
                     ## output layer: sigmoid to map the data range to [0, 1]
                     h3 = self._deconv2d(h2, 1, name='g_dconv1')

@@ -118,8 +118,8 @@ class Train(Train_base):
         sess_config = tf.ConfigProto(allow_soft_placement = True)
         # Use soft_placement to place those variables, which can be placed, on GPU
         with tf.Session(config = sess_config) as sess:
-            if self.config.DEBUG:
-                sess = tf_debug.LocalCLIDebugWrapperSession(sess)
+            # if self.config.DEBUG:
+            #     sess = tf_debug.LocalCLIDebugWrapperSession(sess)
             if self.config.SUMMARY and self.config.SUMMARY_GRAPH:
                 self.summary._graph_summary(sess.graph)
 
@@ -205,6 +205,24 @@ class Train(Train_base):
 
                     # Update progress bar
                     train_pr_bar.update(i)
+                    if i % 100 == 0:
+                        if self.config.DEBUG:
+                            ## Sample image for every 100 update in debug mode
+                            if not self.config.Y_LABLE:
+                                samples_o, d_loss_o, g_loss_o, summary_o = sess.run(
+                                    [samples, d_loss, g_loss, merged_summary],
+                                    feed_dict={x: sample_x,
+                                               z: sample_z})
+                            else:
+                                samples_o, d_loss_o, g_loss_o, summary_o = sess.run(
+                                    [samples, d_loss, g_loss, merged_summary],
+                                    feed_dict={x: sample_x,
+                                               y: sample_y,
+                                               z: sample_z})
+
+                            save_images(samples_o, image_manifold_size(samples_o.shape[0]), \
+                                        os.path.join(self.config.SAMPLE_DIR, 'train_{:02d}_{:02d}.png'.format(epoch, i)))
+
 
                 # Save the model per SAVE_PER_EPOCH
                 if epoch % self.config.SAVE_PER_EPOCH == 0:
