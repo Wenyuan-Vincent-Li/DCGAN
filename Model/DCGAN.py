@@ -333,7 +333,6 @@ class DCGAN(model_base.GAN_Base):
                 G = tf.concat(G_sep, 3)
             else:
                 G = self.generator(z, label)
-            print(image, G)
             D, D_logits, fm = self.discriminator(image, label, reuse = False)
             D_, D_logits_, fm_ = self.discriminator(G, label, reuse = True)
             return G, D, D_logits, D_, D_logits_, fm, fm_
