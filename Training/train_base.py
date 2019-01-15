@@ -5,6 +5,7 @@ Created on Sat May 19 16:34:59 2018
 @author: wenyuan
 """
 import tensorflow as tf
+from collections import OrderedDict
 
 class Train_base(object):
     def __init__(self, learning_rate, beta1):
@@ -177,6 +178,21 @@ class Train_base(object):
             g_loss = tf.losses.mean_squared_error(tf.ones_like(D_logits), D_logits_)
         return d_loss, g_loss
 
+    def _loss_UnrollGAN(self, D, D_logits, D_, D_logits_):
+        with tf.name_scope("Loss"):
+            # Discriminator loss
+            if self.config.LABEL_SMOOTH:
+                d_loss_real = self._sigmoid_cross_entopy_w_logits(0.9 * tf.ones_like(D), D_logits)
+            else:
+                d_loss_real = self._sigmoid_cross_entopy_w_logits(tf.ones_like(D), D_logits)
+            d_loss_fake = self._sigmoid_cross_entopy_w_logits(tf.zeros_like(D_), D_logits_)
+            d_loss = d_loss_fake + d_loss_real
+
+            # Generator loss:
+            if self.config.UNROLL_STPE > 0:
+                update_dict = self._extract_update_dict(updates)
+
+
 
     def _gradient_penalty(self, real, fake, f, label):
         def interpolate(a, b):
@@ -205,3 +221,28 @@ class Train_base(object):
         small_res = 0.5 * tf.square(residual)
         large_res = delta * residual - 0.5 * tf.square(delta)
         return tf.where(condition, small_res, large_res)
+
+    def _remove_original_op_attributes(self, graph):
+        for op in graph.get_operations():
+            op._original_op = None
+
+    def _graph_replace(self, *args, **kwargs):
+        self.remove_original_op_attributes(tf.get_default_graph())
+        return tf.contrib.graph_editor.graph_replace(*args, **kwargs)
+
+    def _extract_update_dict(self, update_ops):
+        name_to_var = {v.name: v for v in tf.global_variables()}
+        updates = OrderedDict()
+        for update in update_ops:
+            var_name = update.op.inputs[0].name
+            var = name_to_var[var_name]
+            value = update.op.inputs[1]
+            if update.op.type == 'Assign':
+                updates[var.value()] = value
+            elif update.op.type == 'AssignAdd':
+                updates[var.value()] = var + value
+            else:
+                raise ValueError(
+                    "Update op type (%s) must be of type Assign or AssignAdd" %
+                    update.op.type)
+        return updates

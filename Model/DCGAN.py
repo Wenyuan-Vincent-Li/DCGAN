@@ -324,6 +324,16 @@ class DCGAN(model_base.GAN_Base):
             D_, D_logits_, fm_ = self.discriminator(G, label, reuse = True)
             D_mr, D_mr_logits, fm_mr = self.discriminator(G_mr, label, reuse = True)
             return G, G_mr, D, D_logits, D_, D_logits_, fm, fm_, D_mr, D_mr_logits, fm_mr
+        # elif self.config.LOSS == "VEEGAN":
+        #     ## Currently VEEGAN doesn't suport condition GAN
+        #     G = self.generator(z)
+        #     z_vee = self.mrGAN_encoder(G)
+        #     ## Connect image and latent vector:
+        #     G_z = self._conv_cond_concat(G, z)
+        #     G_z_vee = self._conv_cond_concat(image, z_vee)
+        #     D, D_logits, fm = self.discriminator(G_z, reuse = False)
+        #     D_, D_logits_, fm_ = self.discriminator(G_z_vee, reuse = True)
+
         else:
             if self.config.LOSS == "PacGAN":
                 G_sep = []
@@ -455,6 +465,7 @@ if __name__ == "__main__":
     class tempConfig(Config):
         BATCH_SIZE = 64
         NUM_CLASSES = None
+        LOSS = VEEGAN
 
 
     tmp_config = tempConfig()

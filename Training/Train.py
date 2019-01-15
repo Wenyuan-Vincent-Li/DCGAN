@@ -447,6 +447,9 @@ def _main_train_celebA(FLAGS = None):
         _customize_config(tmp_config, FLAGS)
     tmp_config.display()
 
+    if tmp_config.LOSS == "UnrolledGAN":
+        from Training.Train_UnrolledGAN import Train_UnrolledGAN as Train
+
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
     # Folder to save the tensorboard info
@@ -496,6 +499,9 @@ def _main_train_mnist(FLAGS = None):
     if FLAGS:
         _customize_config(tmp_config, FLAGS)
     tmp_config.display()
+
+    if tmp_config.LOSS == "UnrolledGAN":
+        from Training.Train_UnrolledGAN import Train_UnrolledGAN as Train
 
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
@@ -553,6 +559,8 @@ def _main_train_prostate(FLAGS = None):
         _customize_config(tmp_config, FLAGS)
     tmp_config.display()
 
+    if tmp_config.LOSS == "UnrolledGAN":
+        from Training.Train_UnrolledGAN import Train_UnrolledGAN as Train
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
     # Folder to save the tensorboard info
@@ -585,6 +593,4 @@ def _customize_config(tmp_config, FLAGS):
     tmp_config.DEBUG = FLAGS.debug
 
 if __name__ == "__main__":
-    # _main_train_prostate()
-    # _main_train_mnist()
-    _main_train_celebA()
+    pass

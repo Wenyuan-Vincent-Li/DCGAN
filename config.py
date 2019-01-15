@@ -68,6 +68,9 @@ class Config(object):
     # Packing number
     PAC_NUM = 3 ## Packing number for PacGAN
 
+    # Unrolled Step
+    UNROLLED_STEP = 3
+
     # Weight decay regularization
     WEIGHT_DECAY = 0.0001
 
