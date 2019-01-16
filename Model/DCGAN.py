@@ -63,16 +63,10 @@ class DCGAN(model_base.GAN_Base):
 
 
     def generator(self, z, y = None, reuse = False):
-        """
-        Generator in GAN
-        :param z: [batch_size, latent_dims]
-        :param y: [batch_size, NUM_CLASSES]
-        :return:
-        """
         with tf.variable_scope("generator") as scope:
             if reuse:
                 scope.reuse_variables()
-            if not self.config.Y_LABLE: ## there is no y, don't use conditional GAN
+            if not self.config.Y_LABEL: ## there is no y, don't use conditional GAN
                 if self.config.CHANNEL == 1:
                     ## first linear layer
                     h0 = self._linear_fc(z, 1024, 'g_h0_lin')
@@ -187,7 +181,7 @@ class DCGAN(model_base.GAN_Base):
             if reuse:
                 scope.reuse_variables()
 
-            if not self.config.Y_LABLE:
+            if not self.config.Y_LABEL:
                 if self.config.CHANNEL == 3:
                     image = self._add_noise(image)
                     h0 = self._conv2d(image, 64, name = 'd_h0_conv')
@@ -348,9 +342,9 @@ class DCGAN(model_base.GAN_Base):
             return G, D, D_logits, D_, D_logits_, fm, fm_
 
     def sampler(self, z, y = None):
-        with tf.variable_scope("generator") as scope:
-            scope.reuse_variables()
-            if not self.config.Y_LABLE:
+        with tf.variable_scope("generator", reuse = tf.AUTO_REUSE) as scope:
+            if not self.config.Y_LABEL:
+                tf.logging.info("Apply unconditional GAN!")
                 if self.config.CHANNEL == 3:
                     # project 'z' and reshape
                     z = self._linear_fc(z, 64 * 8 * 4 * 4, 'g_h0_lin')
@@ -399,6 +393,7 @@ class DCGAN(model_base.GAN_Base):
                     return h3
 
             else:
+                tf.logging.info("Apply conditional GAN!")
                 if self.config.DATA_NAME == "mnist":
                     yb = tf.reshape(y, [self.config.BATCH_SIZE, 1, 1, self.config.NUM_CLASSES])  ## [None, 1, 1, 10]
                     z = tf.concat([z, y], 1)  # concat the z and y in the latent space
@@ -461,29 +456,4 @@ class DCGAN(model_base.GAN_Base):
 
 
 if __name__ == "__main__":
-    from config import Config
-    class tempConfig(Config):
-        BATCH_SIZE = 64
-        NUM_CLASSES = None
-        LOSS = VEEGAN
-
-
-    tmp_config = tempConfig()
-    model = DCGAN(tmp_config)
-
-    tf.reset_default_graph()
-    with tf.device('/gpu:0'):
-        z = tf.ones([tmp_config.BATCH_SIZE, 100])
-        if tmp_config.NUM_CLASSES:
-            y = tf.ones([tmp_config.BATCH_SIZE, tmp_config.NUM_CLASSES])
-        else:
-            y = None
-        image = tf.ones([tmp_config.BATCH_SIZE, 64, 64, 3])
-        output = model.forward_pass(z, image, y)
-
-    with tf.Session() as sess:
-        tf.global_variables_initializer().run()
-        o = sess.run(output)
-
-    for i in o:
-        print(i.shape)
+    pass

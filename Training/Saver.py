@@ -40,9 +40,11 @@ class Saver(object):
             dir_names = next(os.walk(self.save_dir))[1]
             dir_names = filter(lambda f: f.startswith('Run'), dir_names)
             dir_names = sorted(dir_names)
-        if not dir_names:
-            raise ValueError('Cannot find ckpt file!')
-        save_dir = os.path.join(self.save_dir, dir_names[-1])
+            if not dir_names:
+                raise ValueError('Cannot find ckpt file!')
+            save_dir = os.path.join(self.save_dir, dir_names[-1])
+        else:
+            save_dir = os.path.join(self.save_dir, dir_names)
 
         checkpoints = next(os.walk(save_dir))[2]
         checkpoints = filter(lambda f: f.startswith("model"), checkpoints)

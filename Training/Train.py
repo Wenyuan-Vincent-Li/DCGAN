@@ -34,7 +34,7 @@ class Train(Train_base):
         tf.reset_default_graph()
 
         # Create input node
-        if not self.config.Y_LABLE:
+        if not self.config.Y_LABEL:
             image_batch, init_op, dataset = self._input_fn(DataSet)
         else:
             image_batch, label_batch, init_op, dataset = self._input_fn_w_label(DataSet)
@@ -59,7 +59,7 @@ class Train(Train_base):
 
             else:
                 # Create placeholder
-                if self.config.Y_LABLE:
+                if self.config.Y_LABEL:
                     y = tf.placeholder(tf.float32, [self.config.BATCH_SIZE, self.config.NUM_CLASSES], name='y') # label batch
                     x = tf.placeholder(tf.float32, [self.config.BATCH_SIZE] + self.config.IMAGE_DIM,
                                        name ='real_images')  # real image
@@ -154,7 +154,7 @@ class Train(Train_base):
                 sess.run(init_var)
 
             sample_z = np.random.normal(size = (self.config.BATCH_SIZE, 100))
-            if not self.config.Y_LABLE:
+            if not self.config.Y_LABEL:
                 ## TODO: support PacGAN for conditional case
                 sess.run(init_op)
                 if self.config.LOSS == "PacGAN":
@@ -190,7 +190,7 @@ class Train(Train_base):
                     else:
                         batch_z = np.random.normal(size = (self.config.BATCH_SIZE, self.config.Z_DIM)).astype(np.float32)
                         # Fetch a data batch
-                        if not self.config.Y_LABLE:
+                        if not self.config.Y_LABEL:
                             image_batch_o = sess.run(image_batch)
                         else:
                             image_batch_o, label_batch_o = sess.run([image_batch, label_batch])
@@ -200,7 +200,7 @@ class Train(Train_base):
                         # image_batch_o, label_batch_o = image[i * self.config.BATCH_SIZE : (i + 1) * self.config.BATCH_SIZE], \
                         #                                label[i * self.config.BATCH_SIZE : (i + 1) * self.config.BATCH_SIZE]
 
-                    if not self.config.Y_LABLE:
+                    if not self.config.Y_LABEL:
                         if self.config.LOSS == "PacGAN":
                             # Update discriminator
                             _, d_loss_o = sess.run([d_optim, d_loss],
@@ -264,7 +264,7 @@ class Train(Train_base):
                     if i % 100 == 0:
                         if self.config.DEBUG:
                             ## Sample image for every 100 update in debug mode
-                            if not self.config.Y_LABLE:
+                            if not self.config.Y_LABEL:
                                 samples_o, d_loss_o, g_loss_o, summary_o = sess.run(
                                     [samples, d_loss, g_loss, merged_summary],
                                     feed_dict={x: sample_x,
@@ -292,7 +292,7 @@ class Train(Train_base):
                     print("Epoch: [%2d/%2d], d_loss: %.8f, g_loss: %.8f" \
                           % (epoch, self.config.EPOCHS + start_epoch, d_loss_o, g_loss_o))
                 ## Sample image after every epoch
-                if not self.config.Y_LABLE:
+                if not self.config.Y_LABEL:
                     if self.config.LOSS == "PacGAN":
                         samples_o, d_loss_o, g_loss_o, summary_o = sess.run([samples, d_loss, g_loss, merged_summary],
                                                                             feed_dict={x: image_batch_o,
@@ -447,8 +447,6 @@ def _main_train_celebA(FLAGS = None):
         _customize_config(tmp_config, FLAGS)
     tmp_config.display()
 
-    if tmp_config.LOSS == "UnrolledGAN":
-        from Training.Train_UnrolledGAN import Train_UnrolledGAN as Train
 
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
@@ -480,7 +478,7 @@ def _main_train_mnist(FLAGS = None):
         EPOCHS = 8
         NUM_CLASSES = 10
 
-        Y_LABLE = False
+        Y_LABEL = False
 
         ## Input image
         IMAGE_HEIGHT = 28
@@ -500,15 +498,12 @@ def _main_train_mnist(FLAGS = None):
         _customize_config(tmp_config, FLAGS)
     tmp_config.display()
 
-    if tmp_config.LOSS == "UnrolledGAN":
-        from Training.Train_UnrolledGAN import Train_UnrolledGAN as Train
-
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
     # Folder to save the tensorboard info
     log_dir = os.path.join(root_dir, "Training/Log")
     # Comments log on the current run
-    comments = "This training is for prostate using DCGAN."
+    comments = "This training is for mnist using DCGAN."
     comments += tmp_config.config_str() + datetime.now(timezone('US/Eastern')).strftime("%Y-%m-%d_%H_%M_%S")
 
     # Load sample x and sample Y
@@ -538,7 +533,7 @@ def _main_train_prostate(FLAGS = None):
         EPOCHS = 50
         NUM_CLASSES = 2
 
-        Y_LABLE = True
+        Y_LABEL = True
 
         ## Input image
         IMAGE_HEIGHT = 64
@@ -559,8 +554,6 @@ def _main_train_prostate(FLAGS = None):
         _customize_config(tmp_config, FLAGS)
     tmp_config.display()
 
-    if tmp_config.LOSS == "UnrolledGAN":
-        from Training.Train_UnrolledGAN import Train_UnrolledGAN as Train
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
     # Folder to save the tensorboard info
@@ -587,7 +580,7 @@ def _customize_config(tmp_config, FLAGS):
     tmp_config.LOSS = FLAGS.GAN_type
     tmp_config.RESTORE = FLAGS.restore
     tmp_config.SAMPLE_DIR = os.path.join(os.path.dirname(tmp_config.SAMPLE_DIR), FLAGS.sample_dir)
-    tmp_config.Y_LABLE = FLAGS.C_GAN
+    tmp_config.Y_LABEL = FLAGS.C_GAN
     tmp_config.LABEL_SMOOTH = FLAGS.label_smooth
     tmp_config.MINIBATCH_DIS = FLAGS.miniBatchDis
     tmp_config.DEBUG = FLAGS.debug

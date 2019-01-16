@@ -84,6 +84,8 @@ class Config(object):
     BETA1 = 0.5
     SAVE_PER_EPOCH = 2
     RESTORE = True
+    RUN = None
+    RESTORE_EPOCH = None
     LABEL_SMOOTH = False
 
     # Loss Function

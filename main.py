@@ -4,6 +4,7 @@ import tensorflow as tf
 
 from utils import pp
 import Training.Train as train
+import Sampler.Sampler as sampler
 
 flags = tf.app.flags
 flags.DEFINE_string("name", "DCGAN", "Descriptive name of current run")
@@ -21,6 +22,8 @@ flags.DEFINE_string("GPU", "0", "Which GPU used to process the data")
 flags.DEFINE_boolean("label_smooth", False, "True for using one-side label smoothing, only used for [GAN, cGPGAN, LSGAN]")
 flags.DEFINE_boolean("miniBatchDis", False, "True for using miniBatchDis")
 flags.DEFINE_boolean("debug", False, "True for using the debug tool")
+flags.DEFINE_integer("restore_epoch", None, "specify the restore epoch")
+flags.DEFINE_string("run", None, "specify the restore run folder")
 FLAGS = flags.FLAGS
 
 
@@ -37,6 +40,17 @@ def main(_):
             train._main_train_prostate(FLAGS)
         else:
             raise Exception("The dataset you specified is not found!")
+    else:
+        if FLAGS.dataset == "mnist":
+            sampler._main_sampler_mnist(FLAGS)
+        elif FLAGS.dataset == "celebA":
+            sampler._main_sampler_celebA(FLAGS)
+        elif FLAGS.dataset == "prostate":
+            sampler._main_sampler_prostate(FLAGS)
+        else:
+            raise Exception("The dataset you specified is not found!")
+
+
 
 if __name__ == '__main__':
     tf.app.run()
