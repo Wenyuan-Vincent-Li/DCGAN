@@ -23,6 +23,8 @@ class Train(Train_base):
     def __init__(self, config, log_dir, save_dir, **kwargs):
         super(Train, self).__init__(config.LEARNING_RATE, config.BETA1)
         self.config = config
+        if self.config.LOSS == "PacGAN":
+            self.config.BATCH_SIZE = int(self.config.BATCH_SIZE * self.config.PAC_NUM)
         self.save_dir = save_dir
         self.comments = kwargs.get('comments', '')
         if self.config.SUMMARY:
@@ -44,7 +46,7 @@ class Train(Train_base):
         with tf.device('/gpu:0'):
             if self.config.LOSS == "PacGAN":
                 # TODO: support conditional GAN for PacGAN
-                y = None # label batch
+                y = None
                 if self.config.CROP:
                     image_dims = [self.config.IMAGE_HEIGHT_O, self.config.IMAGE_WIDTH_O,
                                   self.config.CHANNEL * self.config.PAC_NUM]
@@ -181,8 +183,8 @@ class Train(Train_base):
                     if self.config.LOSS == "PacGAN":
                         image_batch_sep = []
                         feed_dict_z = {}
-                        for i in range(self.config.PAC_NUM):
-                            feed_dict_z[z[i]] = np.random.normal(size = (self.config.BATCH_SIZE, self.config.Z_DIM)).astype(np.float32)
+                        for j in range(self.config.PAC_NUM):
+                            feed_dict_z[z[j]] = np.random.normal(size = (self.config.BATCH_SIZE, self.config.Z_DIM)).astype(np.float32)
                             image_batch_sep.append(sess.run(image_batch))
                             image_batch_o = np.concatenate(image_batch_sep, axis = 3)
                     else:
@@ -258,18 +260,23 @@ class Train(Train_base):
                         if self.config.DEBUG:
                             ## Sample image for every 100 update in debug mode
                             if not self.config.Y_LABEL:
-                                samples_o, d_loss_o, g_loss_o, summary_o = sess.run(
-                                    [samples, d_loss, g_loss, merged_summary],
-                                    feed_dict={x: sample_x,
-                                               z: sample_z})
+                                if self.config.LOSS == "PacGAN":
+                                    samples_o, d_loss_o, g_loss_o, summary_o = sess.run(
+                                        [samples, d_loss, g_loss, merged_summary],
+                                        feed_dict={x: image_batch_o,
+                                                   **sample_feed_dict_z})
+                                else:
+                                    samples_o, d_loss_o, g_loss_o, summary_o = sess.run(
+                                        [samples, d_loss, g_loss, merged_summary],
+                                        feed_dict={x: sample_x,
+                                                   z: sample_z})
                             else:
                                 samples_o, d_loss_o, g_loss_o, summary_o = sess.run(
                                     [samples, d_loss, g_loss, merged_summary],
                                     feed_dict={x: sample_x,
                                                y: sample_y,
                                                z: sample_z})
-
-                            save_images(samples_o, image_manifold_size(samples_o.shape[0]), \
+                            save_images(samples_o[:64], image_manifold_size(64), \
                                         os.path.join(self.config.SAMPLE_DIR, 'train_{:02d}_{:02d}.png'.format(epoch, i)))
 
 
@@ -304,7 +311,7 @@ class Train(Train_base):
                     self.summary.summary_writer.add_summary(summary_o, epoch)
 
                 print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss_o, g_loss_o))
-                save_images(samples_o, image_manifold_size(samples_o.shape[0]), \
+                save_images(samples_o[:64], image_manifold_size(64), \
                             os.path.join(self.config.SAMPLE_DIR, 'train_{:02d}.png'.format(epoch)))
 
             if self.config.SUMMARY:
@@ -322,11 +329,11 @@ class Train(Train_base):
         if self.config.LOSS == "MRGAN":
             d_loss, g_loss, e_loss = self._loss_MRGAN(D, D_logits, D_, D_logits_, fake, G_mr, D_mr_logits)
             return d_loss, g_loss, e_loss
-        elif self.config.LOSS in ["GAN", "PacGAN"]:
+        elif self.config.LOSS in ["GAN"]:
             d_loss, g_loss = self._loss_GAN(D, D_logits, D_, D_logits_)
         elif self.config.LOSS == "WGAN":
             d_loss, g_loss = self._loss_WGAN(D, D_logits, D_, D_logits_)
-        elif self.config.LOSS == "WGAN_GP":
+        elif self.config.LOSS in ["WGAN_GP", "PacGAN"]:
             d_loss, g_loss = self._loss_WGAN_GP(D, D_logits, D_, D_logits_, real, fake, discriminator, label)
         elif self.config.LOSS == "LSGAN":
             d_loss, g_loss = self._loss_LSGAN(D, D_logits, D_, D_logits_)
