@@ -60,6 +60,11 @@ class Sampler(Sampler_base):
                     if not self.config.Y_LABEL:
                         samples_o = sess.run(samples,
                                                        feed_dict={z: sample_z})
+                        if self.config.DATA_NAME == "mnist":
+                            samples_o = samples_o * 255
+                        else:
+                            samples_o = (samples_o + 1) * 127.5
+
                         for i in range(samples_o.shape[0]):
                             image = samples_o[i,...].astype(np.uint8)
                             if self.config.DATA_NAME == "prostate":
@@ -81,6 +86,12 @@ class Sampler(Sampler_base):
                         samples_o = sess.run(samples,
                                                            feed_dict = {y: sample_y,
                                                                         z: sample_z})
+
+                        if self.config.DATA_NAME == "mnist":
+                            samples_o = samples_o * 255
+                        else:
+                            samples_o = (samples_o + 1) * 127.5
+
                         labels = np.argmax(sample_y, axis = 1)
                         for i in range(samples_o.shape[0]):
                             image = samples_o[i,...].astype(np.uint8)
@@ -105,7 +116,7 @@ class Sampler(Sampler_base):
                 sample_pr_bar.update(epoch)
             save_images(samples_o[:64], image_manifold_size(64), \
                         os.path.join(self.config.SAMPLE_DIR, 'samples.png'))
-            return
+            return samples_o, labels
 
 def _main_sampler_celebA(FLAGS = None):
     from config import Config
@@ -165,7 +176,7 @@ def _main_sampler_mnist(FLAGS = None):
         NAME = "mnist_Sampler"
         BATCH_SIZE = 64
         RESTORE = True
-        RUN = "Run_2019-01-07_20_59_48"
+        RUN = "Run_2019-01-17_15_39_49"
         RESTORE_EPOCH = 50
         DATA_DIR = os.path.join(root_dir, "Dataset/mnist")
         DATA_NAME = "mnist"
@@ -186,7 +197,7 @@ def _main_sampler_mnist(FLAGS = None):
         EPOCHS = 100
 
         #
-        SAMPLE_DIR = os.path.join(root_dir, "Sampler/samples")
+        SAMPLE_DIR = os.path.join(root_dir, "Sampler/mnist_samples")
 
     tmp_config = tempConfig()
 
@@ -194,6 +205,7 @@ def _main_sampler_mnist(FLAGS = None):
         _customize_config(tmp_config, FLAGS)
     tmp_config.display()
 
+    check_folder_exists(tmp_config.SAMPLE_DIR)
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
 
@@ -215,7 +227,7 @@ def _main_sampler_prostate(FLAGS = None):
         NAME = "prostate_sampler"
         BATCH_SIZE = 64
         RESTORE = True
-        RUN = "Run_2019-01-07_20_59_48"
+        RUN = "Run_2019-01-09_14_06_22"
         RESTORE_EPOCH = 100
         DATA_DIR = os.path.join(root_dir, "Dataset/prostate")
         DATA_NAME = "prostate"
@@ -235,12 +247,13 @@ def _main_sampler_prostate(FLAGS = None):
         IMAGE_WIDTH_O = 64
 
         #
-        SAMPLE_DIR = os.path.join(root_dir, "Sampler/samples")
+        SAMPLE_DIR = os.path.join(root_dir, "Sampler/prostate_samples")
 
     tmp_config = tempConfig()
 
-    # if FLAGS:
-    #     _customize_config(tmp_config, FLAGS)
+    if FLAGS:
+        _customize_config(tmp_config, FLAGS)
+
     tmp_config.display()
 
     check_folder_exists(tmp_config.SAMPLE_DIR)
@@ -267,5 +280,5 @@ def _customize_config(tmp_config, FLAGS):
     tmp_config.RUN = FLAGS.run
 
 if __name__ == "__main__":
-    _main_sampler_mnist()
+    _main_sampler_prostate()
 

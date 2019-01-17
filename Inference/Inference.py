@@ -11,7 +11,7 @@ else:
 sys.path.append(root_dir)
 import tensorflow as tf
 
-from inference_base import Inference_base
+from Inference.inference_base import Inference_base
 from Training.Saver import Saver
 from utils import *
 
@@ -99,7 +99,7 @@ def _main_inference_mnist(FLAGS = None):
         RESTORE = True
         RUN = "Run_2019-01-16_23_46_42"
         RESTORE_EPOCH = 12
-        DATA_DIR = os.path.join(root_dir, "Dataset/mnist")
+        DATA_DIR = os.path.join(root_dir, "Sampler/mnist_samples")
         DATA_NAME = "mnist"
         NUM_CLASSES = 10
         REPEAT = 1
@@ -125,7 +125,7 @@ def _main_inference_mnist(FLAGS = None):
     save_dir = os.path.join(root_dir, "Training/Weights_mnist_classifier")
 
     # Create a inference object
-    filename_list = [os.path.join("Tfrecord", "mnist_val.tfrecords")]
+    filename_list = ["mnist_sampler.tfrecords"]
     infer = Inference(tmp_config, save_dir)
     infer.test(Model, DataSet, filename_list)
 
@@ -142,7 +142,7 @@ def _main_inference_prostate(FLAGS = None):
         BATCH_SIZE = 64
         RESTORE = True
         RUN = "Run_2019-01-16_23_53_33"
-        DATA_DIR = os.path.join(root_dir, "Sampler/samples")
+        DATA_DIR = os.path.join(root_dir, "Sampler/prostate_samples")
         DATA_NAME = "prostate"
         NUM_CLASSES = 2
         REPEAT = 1
@@ -173,20 +173,7 @@ def _main_inference_prostate(FLAGS = None):
     infer.test(Model, DataSet, filename_list)
 
 def _customize_config(tmp_config, FLAGS):
-    tmp_config.NAME = FLAGS.name
-    tmp_config.EPOCHS = FLAGS.epoch
-    tmp_config.RESTORE_EPOCH = FLAGS.restore_epoch
-    tmp_config.LEARNING_RATE = FLAGS.learning_rate
-    tmp_config.BETA1 = FLAGS.beta1
-    tmp_config.BATCH_SIZE = FLAGS.batch_size
-    tmp_config.LOSS = FLAGS.GAN_type
-    tmp_config.RESTORE = FLAGS.restore
-    tmp_config.SAMPLE_DIR = os.path.join(os.path.dirname(tmp_config.SAMPLE_DIR), FLAGS.sample_dir)
-    tmp_config.Y_LABEL = FLAGS.C_GAN
-    tmp_config.LABEL_SMOOTH = FLAGS.label_smooth
-    tmp_config.MINIBATCH_DIS = FLAGS.miniBatchDis
-    tmp_config.DEBUG = FLAGS.debug
-    tmp_config.RUN = FLAGS.run
+    tmp_config.DATA_DIR = os.path.join(tmp_config.DATA_DIR, FLAGS.data_dir)
 
 if __name__ == "__main__":
     _main_inference_prostate()
