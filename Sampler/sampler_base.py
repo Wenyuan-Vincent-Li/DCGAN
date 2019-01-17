@@ -18,3 +18,9 @@ class Sampler_base(object):
     def _build_train_graph(self):
         raise NotImplementedError(
             'loss() is implemented in Model sub classes')
+
+    def _int64_feature(self, value):
+        return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+    def _bytes_feature(self, value):
+        return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))

@@ -43,7 +43,6 @@ def image_manifold_size(num_images):
 
 
 def save_images(images, size, image_path):
-    check_folder_exists(os.path.dirname(image_path))
     return imsave(inverse_transform(images), size, image_path)
 
 

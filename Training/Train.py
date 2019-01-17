@@ -584,6 +584,6 @@ def _customize_config(tmp_config, FLAGS):
     tmp_config.LABEL_SMOOTH = FLAGS.label_smooth
     tmp_config.MINIBATCH_DIS = FLAGS.miniBatchDis
     tmp_config.DEBUG = FLAGS.debug
-
+    check_folder_exists(tmp_config.SAMPLE_DIR)
 if __name__ == "__main__":
     pass

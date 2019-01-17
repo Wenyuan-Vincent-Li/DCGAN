@@ -142,7 +142,7 @@ def _main_inference_prostate(FLAGS = None):
         BATCH_SIZE = 64
         RESTORE = True
         RUN = "Run_2019-01-16_23_53_33"
-        DATA_DIR = os.path.join(root_dir, "Dataset/prostate")
+        DATA_DIR = os.path.join(root_dir, "Sampler/samples")
         DATA_NAME = "prostate"
         NUM_CLASSES = 2
         REPEAT = 1
@@ -168,7 +168,7 @@ def _main_inference_prostate(FLAGS = None):
     save_dir = os.path.join(root_dir, "Training/Weights_prostate_classifier")
 
     # Create a Inference object
-    filename_list = [os.path.join("Tfrecord", "Test_Set_0_Por_40.tfrecords")]
+    filename_list = ["prostate_sampler.tfrecords"]
     infer = Inference(tmp_config, save_dir)
     infer.test(Model, DataSet, filename_list)
 

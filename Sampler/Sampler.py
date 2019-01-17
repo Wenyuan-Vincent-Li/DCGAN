@@ -21,15 +21,9 @@ class Sampler(Sampler_base):
         self.config = config
         self.save_dir = save_dir
 
-    def main_sampler(self, Model, DataSet, SAMPLE_X = None, SAMPLE_Y = None):
+    def main_sampler(self, Model, SAMPLE_Y = None):
         # Reset tf graph.
         tf.reset_default_graph()
-
-        # Create input node
-        if not self.config.Y_LABEL:
-            image_batch, init_op, dataset = self._input_fn(DataSet)
-        else:
-            image_batch, label_batch, init_op, dataset = self._input_fn_w_label(DataSet)
 
         # Build up the graph and loss
         with tf.device('/gpu:0'):
@@ -53,73 +47,69 @@ class Sampler(Sampler_base):
         # Use soft_placement to place those variables, which can be placed, on GPU
         with tf.Session(config = sess_config) as sess:
             assert self.config.RESTORE, "RESTORE must be true for the sampler mode!"
-
             _ = saver.restore(sess, self.config.RUN, self.config.RESTORE_EPOCH)
-
             # Start Sampling
             tf.logging.info("Start sampling!")
-            for epoch in range(1, self.config.EPOCHS + 1):
-                if self.config.Y_LABEL:
-                   sample_y = SAMPLE_Y
-                sample_z = np.random.normal(size=(self.config.BATCH_SIZE, self.config.Z_DIM))
-                sample_pr_bar = tf.contrib.keras.utils.Progbar(target= self.config.EPOCHS + 1)
-                if not self.config.Y_LABEL:
-                    samples_o = sess.run(samples,
-                                                   feed_dict={z: sample_z})
-                else:
-                    samples_o = sess.run(samples,
-                                                       feed_dict = {y: sample_y,
-                                                                    z: sample_z})
+            with tf.python_io.TFRecordWriter(os.path.join(self.config.SAMPLE_DIR, \
+                                                          self.config.DATA_NAME + "_sampler.tfrecords")) as record_writer:
+                for epoch in range(1, self.config.EPOCHS + 1):
+                    if self.config.Y_LABEL:
+                       sample_y = SAMPLE_Y
+                    sample_z = np.random.normal(size=(self.config.BATCH_SIZE, self.config.Z_DIM))
+                    sample_pr_bar = tf.contrib.keras.utils.Progbar(target= self.config.EPOCHS)
+                    if not self.config.Y_LABEL:
+                        samples_o = sess.run(samples,
+                                                       feed_dict={z: sample_z})
+                        for i in range(samples_o.shape[0]):
+                            image = samples_o[i,...].astype(np.uint8)
+                            if self.config.DATA_NAME == "prostate":
+                                example = tf.train.Example(features=tf.train.Features(
+                                    feature={
+                                        'image': self._bytes_feature(image.tobytes()),
+                                        'label': self._int64_feature(-1), ## -1 stands for no label
+                                        'height': self._int64_feature(image.shape[0]),
+                                        'width': self._int64_feature(image.shape[1])
+                                    }))
+                            else:
+                                example = tf.train.Example(features=tf.train.Features(
+                                    feature={
+                                        'image': self._bytes_feature(image.tobytes()),
+                                        'label': self._int64_feature(-1),
+                                    }))
+                            record_writer.write(example.SerializeToString())
+                    else:
+                        samples_o = sess.run(samples,
+                                                           feed_dict = {y: sample_y,
+                                                                        z: sample_z})
+                        labels = np.argmax(sample_y, axis = 1)
+                        for i in range(samples_o.shape[0]):
+                            image = samples_o[i,...].astype(np.uint8)
+                            label = labels[i]
+                            if self.config.DATA_NAME == "prostate":
+                                example = tf.train.Example(features=tf.train.Features(
+                                    feature={
+                                        'image': self._bytes_feature(image.tobytes()),
+                                        'label': self._int64_feature(label),
+                                        'height': self._int64_feature(image.shape[0]),
+                                        'width': self._int64_feature(image.shape[1])
+                                    }))
+                            elif self.config.DATA_NAME == "mnist":
+                                example = tf.train.Example(features=tf.train.Features(
+                                    feature={
+                                        'image': self._bytes_feature(image.tobytes()),
+                                        'label': self._int64_feature(label),
+                                    }))
+                            record_writer.write(example.SerializeToString())
 
                 # Update progress bar
                 sample_pr_bar.update(epoch)
-                save_images(samples_o, image_manifold_size(samples_o.shape[0]), \
-                            os.path.join(self.config.SAMPLE_DIR, 'sample_{:02d}.png'.format(epoch)))
+            save_images(samples_o[:64], image_manifold_size(64), \
+                        os.path.join(self.config.SAMPLE_DIR, 'samples.png'))
             return
-
-    def _input_fn_w_label(self, DataSet):
-        """
-        Create the input node
-        :return:
-        """
-        with tf.device('/cpu:0'):
-            with tf.name_scope('Input_Data'):
-                # Training dataset
-                dataset = DataSet(self.config.DATA_DIR, self.config, use_augmentation = True)
-                # Inputpipeline
-                image_batch, label_batch, init_op = dataset.inputpipline_singleset()
-                if self.config.LOSS == "PacGAN":
-                    pass
-        return image_batch, label_batch, init_op, dataset
-
-    def _input_fn(self, DataSet):
-        with tf.device('/cpu:0'):
-            with tf.name_scope('Input_Data'):
-                # Training dataset
-                dataset = DataSet(self.config.DATA_DIR, self.config, use_augmentation = True)
-                # Inputpipeline
-                try:
-                    image_batch, init_op = dataset.inputpipline_singleset()
-                except:
-                    image_batch, _, init_op = dataset.inputpipline_singleset()
-                if self.config.LOSS == "PacGAN":
-                    pass
-        return image_batch, init_op, dataset
-
-    def _input_fn_NP(self, DataSet):
-        """
-        Create the input node using numpy function
-        :return:
-        """
-        dataset = DataSet(self.config.DATA_DIR, self.config)
-        X, y = dataset.load_mnist()
-        return X, y
 
 def _main_sampler_celebA(FLAGS = None):
     from config import Config
     from Model.DCGAN import DCGAN as Model
-    from Inputpipeline.celebADataset import celebADataSet as DataSet
-    from time import strftime
 
     tf.logging.set_verbosity(tf.logging.INFO)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Disable all debugging logs
@@ -162,18 +152,17 @@ def _main_sampler_celebA(FLAGS = None):
     save_dir = os.path.join(root_dir, "Training/Weights")
     # Create a sampler object
     sampler = Sampler(tmp_config, save_dir)
-    sampler.main_sampler(Model, DataSet)
+    sampler.main_sampler(Model)
 
 def _main_sampler_mnist(FLAGS = None):
     from config import Config
     from Model.DCGAN import DCGAN as Model
-    from Inputpipeline.mnistDataset import mnistDataSet as DataSet
 
     tf.logging.set_verbosity(tf.logging.INFO)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Disable all debugging logs
 
     class tempConfig(Config):
-        NAME = "mnist_DCGAN"
+        NAME = "mnist_Sampler"
         BATCH_SIZE = 64
         RESTORE = True
         RUN = "Run_2019-01-07_20_59_48"
@@ -194,7 +183,7 @@ def _main_sampler_mnist(FLAGS = None):
         IMAGE_HEIGHT_O = 28
         IMAGE_WIDTH_O = 28
 
-        EPOCHS = 8
+        EPOCHS = 100
 
         #
         SAMPLE_DIR = os.path.join(root_dir, "Sampler/samples")
@@ -209,17 +198,15 @@ def _main_sampler_mnist(FLAGS = None):
     save_dir = os.path.join(root_dir, "Training/Weights")
 
     # Load sample x and sample Y
-    SAMPLE_X = np.load(os.path.join(root_dir, "Inputpipeline/mnist_sample_x.npy"))[:64, ...]
     SAMPLE_Y = np.load(os.path.join(root_dir, "Inputpipeline/mnist_sample_y.npy"))[:64, ...]
 
     # Create a training object
     sampler = Sampler(tmp_config, save_dir)
-    sampler.main_sampler(Model, DataSet, SAMPLE_X, SAMPLE_Y)
+    sampler.main_sampler(Model, SAMPLE_Y)
 
 def _main_sampler_prostate(FLAGS = None):
     from config import Config
     from Model.DCGAN import DCGAN as Model
-    from Inputpipeline.CedarsDataset import CedarsDataset as DataSet
 
     tf.logging.set_verbosity(tf.logging.INFO)
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Disable all debugging logs
@@ -228,10 +215,11 @@ def _main_sampler_prostate(FLAGS = None):
         NAME = "prostate_sampler"
         BATCH_SIZE = 64
         RESTORE = True
-        TRAIN_SIZE = 62073
+        RUN = "Run_2019-01-07_20_59_48"
+        RESTORE_EPOCH = 100
         DATA_DIR = os.path.join(root_dir, "Dataset/prostate")
         DATA_NAME = "prostate"
-        EPOCHS = 50
+        EPOCHS = 240
         NUM_CLASSES = 2
 
         Y_LABEL = True
@@ -251,37 +239,33 @@ def _main_sampler_prostate(FLAGS = None):
 
     tmp_config = tempConfig()
 
-    if FLAGS:
-        _customize_config(tmp_config, FLAGS)
+    # if FLAGS:
+    #     _customize_config(tmp_config, FLAGS)
     tmp_config.display()
+
+    check_folder_exists(tmp_config.SAMPLE_DIR)
 
     # Folder to save the trained weights
     save_dir = os.path.join(root_dir, "Training/Weights")
 
     # Load sample x and sample Y
-    SAMPLE_X = np.load(os.path.join(root_dir, "Inputpipeline/prostate_sample_x.npy"))[:64, ...]
     SAMPLE_Y = np.load(os.path.join(root_dir, "Inputpipeline/prostate_sample_y.npy"))[:64, ...]
-
-
     # Create a Sampler object
     sampler = Sampler(tmp_config, save_dir)
-    sampler.main_sampler(Model, DataSet, SAMPLE_X, SAMPLE_Y)
+    sampler.main_sampler(Model, SAMPLE_Y)
 
 def _customize_config(tmp_config, FLAGS):
     tmp_config.NAME = FLAGS.name
     tmp_config.EPOCHS = FLAGS.epoch
     tmp_config.RESTORE_EPOCH = FLAGS.restore_epoch
-    tmp_config.LEARNING_RATE = FLAGS.learning_rate
-    tmp_config.BETA1 = FLAGS.beta1
     tmp_config.BATCH_SIZE = FLAGS.batch_size
-    tmp_config.LOSS = FLAGS.GAN_type
     tmp_config.RESTORE = FLAGS.restore
-    tmp_config.SAMPLE_DIR = os.path.join(os.path.dirname(tmp_config.SAMPLE_DIR), FLAGS.sample_dir)
+    tmp_config.SAMPLE_DIR = os.path.join(tmp_config.SAMPLE_DIR, FLAGS.sample_dir)
     tmp_config.Y_LABEL = FLAGS.C_GAN
     tmp_config.LABEL_SMOOTH = FLAGS.label_smooth
-    tmp_config.MINIBATCH_DIS = FLAGS.miniBatchDis
     tmp_config.DEBUG = FLAGS.debug
     tmp_config.RUN = FLAGS.run
 
 if __name__ == "__main__":
-    pass
+    _main_sampler_mnist()
+
