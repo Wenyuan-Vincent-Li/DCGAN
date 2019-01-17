@@ -246,3 +246,6 @@ class Train_base(object):
                     "Update op type (%s) must be of type Assign or AssignAdd" %
                     update.op.type)
         return updates
+
+    def _accuracy_metric(self, labels, predictions):
+        return tf.metrics.accuracy(labels, predictions)

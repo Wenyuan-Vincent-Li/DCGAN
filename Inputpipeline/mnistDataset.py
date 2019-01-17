@@ -137,28 +137,61 @@ class mnistDataSet(object):
         label_batch.set_shape([self.config.BATCH_SIZE, self.y_dim])
         return image_batch, label_batch, init_op
 
-    def inputpipline_train_val(self, other):
+    def inputpipline_customized(self, filename_list):
         # 1 Read in tfrecords
-        dataset_train = self.input_from_tfrecord_filename()
-        dataset_val = other.input_from_tfrecord_filename()
+        filename_list = [os.path.join(self.data_dir, x) for x in filename_list]
+        dataset = tf.data.TFRecordDataset(filename_list)
         # 2 Parser tfrecords and preprocessing the data
-        dataset_train = dataset_train.map(self.parser, \
+        dataset = dataset.map(self.parser, \
+                              num_parallel_calls=self.config.BATCH_SIZE)
+        # 3 Shuffle and repeat
+        dataset = self.shuffle_and_repeat(dataset, repeat=self.config.REPEAT)
+        # 4 Batch it up
+        dataset = self.batch(dataset)
+
+        # 5 Make iterator
+        iterator = dataset.make_initializable_iterator()
+        init_op = iterator.initializer
+        image_batch, label_batch = iterator.get_next()
+        image_batch.set_shape([self.config.BATCH_SIZE] + self.config.IMAGE_DIM)
+        label_batch.set_shape([self.config.BATCH_SIZE, self.y_dim])
+
+        return image_batch, label_batch, init_op
+
+    def inputpipline_train_val(self):
+        # 1 Read in tfrecords
+        dataset_train = tf.data.TFRecordDataset(os.path.join(self.data_dir, "Tfrecord/mnist_train.tfrecords"))
+        dataset_val = tf.data.TFRecordDataset(os.path.join(self.data_dir, "Tfrecord/mnist_val.tfrecords"))
+
+        # 2 Parser tfrecords and preprocessing the data
+        dataset_train = dataset_train.map(self.parser,
                                           num_parallel_calls=self.config.BATCH_SIZE)
-        dataset_val = dataset_val.map(self.parser, \
+        dataset_val = dataset_val.map(self.parser,
                                       num_parallel_calls=self.config.BATCH_SIZE)
         # 3 Shuffle and repeat
-        dataset_train = self.shuffle_and_repeat(dataset_train)
+        dataset_train = self.shuffle_and_repeat(dataset_train, repeat = self.config.REPEAT)
+        dataset_val = self.shuffle_and_repeat(dataset_val, repeat = 1)
+
         # 4 Batch it up
         dataset_train = self.batch(dataset_train)
         dataset_val = self.batch(dataset_val)
-        # 5 Make iterator
-        iterator = tf.data.Iterator.from_structure(dataset_train.output_types,
-                                                   dataset_train.output_shapes)
-        image_batch, label_batch = iterator.get_next()
-        init_op_train = iterator.make_initializer(dataset_train)
-        init_op_val = iterator.make_initializer(dataset_val)
 
-        return image_batch, label_batch, init_op_train, init_op_val
+        # 5 Make iterator
+        # first make the labeled data structure iterator
+        train_iterator = tf.data.Iterator.from_structure(dataset_train.output_types, \
+                                                       dataset_train.output_shapes)
+        lab_input, lab_output = train_iterator.get_next()
+
+        lab_input.set_shape([self.config.BATCH_SIZE] + self.config.IMAGE_DIM)
+        lab_output.set_shape([self.config.BATCH_SIZE, self.y_dim])
+
+        # finally make initializer
+        init_op_train_lab = train_iterator.make_initializer(dataset_train)
+        init_op_val_lab = train_iterator.make_initializer(dataset_val)
+        init_op_train = [init_op_train_lab]
+        init_op_val = [init_op_val_lab]
+
+        return lab_input, lab_output, init_op_train, init_op_val
 
 ###### Testing code
 def _main_inputpipline_singleset():
@@ -236,4 +269,31 @@ def _main_numpy_mnistset():
     print(X[0: 64, ...].shape)
 
 if __name__ == "__main__":
-    _main_inputpipline_singleset()
+    from config import Config
+
+    class tempConfig(Config):
+        BATCH_SIZE = 64
+        REPEAT = 1
+
+
+    tmp_config = tempConfig()
+    data_dir = os.path.join(root_dir, "Dataset/mnist")
+
+    num_dataset = 0
+    tf.reset_default_graph()
+    with tf.device('/cpu:0'):
+        dataset = mnistDataSet(data_dir, tmp_config, \
+                               'train', use_augmentation=True)
+        # image_batch, label_batch, init_op_train, init_op_val = dataset.inputpipline_train_val_mnist()
+        file_list = [os.path.join(data_dir, "Tfrecord/mnist_train.tfrecords")]
+        image_batch, label_batch, init_op = dataset.inputpipline_customized_mnist(file_list)
+        with tf.Session() as sess:
+            sess.run(init_op)
+            while True:
+                try:
+                    image_batch_output, label_batch_output = \
+                        sess.run([image_batch, label_batch])
+                    num_dataset += 1
+                except tf.errors.OutOfRangeError:
+                    break
+    print(image_batch_output.shape, label_batch_output.shape, num_dataset)

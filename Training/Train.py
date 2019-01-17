@@ -454,7 +454,7 @@ def _main_train_celebA(FLAGS = None):
     log_dir = os.path.join(root_dir, "Training/Log")
     # Comments log on the current run
     comments = "This training is for celebA using DCGAN."
-    comments += tmp_config.config_str() + datetime.now(timezone('US/Eastern')).strftime("%Y-%m-%d_%H_%M_%S")
+    comments += tmp_config.config_str() + datetime.now(timezone('US/Pacific')).strftime("%Y-%m-%d_%H_%M_%S")
     # Create a training object
     training = Train(tmp_config, log_dir, save_dir, comments=comments)
     training.train(Model, DataSet)
@@ -504,7 +504,7 @@ def _main_train_mnist(FLAGS = None):
     log_dir = os.path.join(root_dir, "Training/Log")
     # Comments log on the current run
     comments = "This training is for mnist using DCGAN."
-    comments += tmp_config.config_str() + datetime.now(timezone('US/Eastern')).strftime("%Y-%m-%d_%H_%M_%S")
+    comments += tmp_config.config_str() + datetime.now(timezone('US/Pacific')).strftime("%Y-%m-%d_%H_%M_%S")
 
     # Load sample x and sample Y
     SAMPLE_X = np.load(os.path.join(root_dir, "Inputpipeline/mnist_sample_x.npy"))[:64, ...]
@@ -560,7 +560,7 @@ def _main_train_prostate(FLAGS = None):
     log_dir = os.path.join(root_dir, "Training/Log")
     # Comments log on the current run
     comments = "This training is for prostate using DCGAN."
-    comments += tmp_config.config_str() + datetime.now(timezone('US/Eastern')).strftime("%Y-%m-%d_%H_%M_%S")
+    comments += tmp_config.config_str() + datetime.now(timezone('US/Pacific')).strftime("%Y-%m-%d_%H_%M_%S")
 
     # Load sample x and sample Y
     SAMPLE_X = np.load(os.path.join(root_dir, "Inputpipeline/prostate_sample_x.npy"))[:64, ...]
