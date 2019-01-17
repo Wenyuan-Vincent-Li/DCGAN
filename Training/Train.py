@@ -168,9 +168,7 @@ class Train(Train_base):
                 else:
                     sample_x = sess.run(image_batch)
             else:
-                # sample_x, sample_y = sess.run([image_batch, label_batch])
                 sample_x, sample_y = SAMPLE_X, SAMPLE_Y
-                # sample_x, sample_y = image[:64, ...], label[:64, ...] # for numpy input
 
             # Start Training
             tf.logging.info("Start traininig!")
@@ -194,11 +192,6 @@ class Train(Train_base):
                             image_batch_o = sess.run(image_batch)
                         else:
                             image_batch_o, label_batch_o = sess.run([image_batch, label_batch])
-
-
-                        ## for numpy input
-                        # image_batch_o, label_batch_o = image[i * self.config.BATCH_SIZE : (i + 1) * self.config.BATCH_SIZE], \
-                        #                                label[i * self.config.BATCH_SIZE : (i + 1) * self.config.BATCH_SIZE]
 
                     if not self.config.Y_LABEL:
                         if self.config.LOSS == "PacGAN":
